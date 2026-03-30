@@ -1,0 +1,137 @@
+---
+title: Logistikos — Entity relationship diagram
+---
+erDiagram
+    User ||--o| DriverProfile : "has profile"
+    User ||--o{ DeliveryOrder : "creates"
+    User ||--o{ Session : "has sessions"
+    User ||--o{ PaymentMethod : "has payment methods"
+    User ||--o{ DriverEarning : "earns"
+    User ||--o{ Notification : "receives"
+    User ||--o{ Consent : "grants"
+
+    DeliveryOrder ||--o{ OrderItem : "contains"
+    DeliveryOrder ||--o| Assignment : "assigned via"
+    DeliveryOrder ||--o| Payment : "paid via"
+    DeliveryOrder ||--o{ Notification : "triggers"
+
+    Payment ||--o| DriverEarning : "generates"
+
+    User {
+        uuid id PK
+        string name "encrypted"
+        string email "encrypted deterministic"
+        string password_digest
+        enum role "customer | driver"
+        string provider
+        string uid
+    }
+
+    DriverProfile {
+        uuid id PK
+        uuid user_id FK
+        enum vehicle_type "motorcycle|car|van|truck"
+        boolean is_available
+        integer radius_preference
+        geometry location "PostGIS Point 4326"
+        timestamp last_location_updated_at
+    }
+
+    DeliveryOrder {
+        uuid id PK
+        uuid created_by FK
+        enum status "processing|open|accepted|..."
+        string pickup_address
+        string dropoff_address
+        geometry pickup_location "PostGIS Point"
+        geometry dropoff_location "PostGIS Point"
+        geometry route_geometry "PostGIS LineString"
+        integer estimated_distance_meters
+        integer estimated_duration_seconds
+        timestamp scheduled_at
+        decimal price
+        decimal estimated_price
+    }
+
+    OrderItem {
+        uuid id PK
+        uuid order_id FK
+        string name
+        integer quantity
+        enum size "small|medium|large|bulk"
+    }
+
+    Assignment {
+        uuid id PK
+        uuid order_id FK
+        uuid driver_id FK
+        timestamp accepted_at
+        geometry driver_location "PostGIS Point"
+        timestamp last_location_updated_at
+        integer cached_eta_seconds
+        boolean location_stale
+    }
+
+    Payment {
+        uuid id PK
+        uuid delivery_order_id FK
+        uuid customer_id FK
+        uuid driver_id FK
+        integer amount_cents
+        string currency
+        enum status "pending|authorized|captured|..."
+        string gateway_provider
+        string gateway_payment_id
+        timestamp authorized_at
+        timestamp captured_at
+        jsonb metadata
+    }
+
+    PaymentMethod {
+        uuid id PK
+        uuid user_id FK
+        string gateway_provider
+        string gateway_token "encrypted"
+        string card_last_four
+        string card_brand
+        boolean is_default
+        timestamp expires_at
+    }
+
+    DriverEarning {
+        uuid id PK
+        uuid driver_id FK
+        uuid payment_id FK
+        uuid delivery_order_id FK
+        integer gross_amount_cents
+        integer platform_fee_cents
+        integer net_amount_cents
+        timestamp paid_out_at
+    }
+
+    Notification {
+        uuid id PK
+        uuid user_id FK
+        uuid order_id FK
+        string type
+        string message
+        boolean is_read
+        boolean is_expired
+    }
+
+    Session {
+        uuid id PK
+        uuid user_id FK
+        string ip_address
+        string user_agent
+    }
+
+    Consent {
+        uuid id PK
+        uuid user_id FK
+        enum purpose "terms|location|payment|marketing"
+        timestamp granted_at
+        timestamp revoked_at
+        string ip_address
+        string user_agent
+    }

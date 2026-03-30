@@ -1,0 +1,47 @@
+---
+title: Logistikos — Order lifecycle state machine
+---
+stateDiagram-v2
+    [*] --> processing: Customer submits order
+    processing --> open: Geocoding + routing + matching OK
+    processing --> error: Geocoding or routing fails
+    error --> processing: Customer corrects address
+    open --> accepted: Driver accepts (optimistic lock)
+    open --> expired: Stale order cleanup (cron)
+    open --> cancelled: Customer cancels
+    accepted --> pickup_in_progress: Driver starts pickup
+    accepted --> cancelled: Either party cancels
+    pickup_in_progress --> in_transit: Goods collected
+    in_transit --> completed: Delivery confirmed
+    completed --> [*]
+    cancelled --> [*]
+    expired --> [*]
+
+    note right of processing
+        Background tasks:
+        GeocodeWorker → RouteWorker
+        → PriceEstimationWorker
+        → DriverMatchWorker
+    end note
+
+    note right of accepted
+        Side effects:
+        PaymentAuthorizationWorker
+        FeedInvalidation
+        RouteSnapshot cache
+        CustomerNotification
+    end note
+
+    note right of completed
+        Side effects:
+        PaymentCaptureWorker
+        DriverEarning created
+        GPS tracking stopped
+    end note
+
+    note right of cancelled
+        Side effects:
+        PaymentRefundWorker
+        FeedInvalidation
+        CounterpartNotification
+    end note

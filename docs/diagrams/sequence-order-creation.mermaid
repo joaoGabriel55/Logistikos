@@ -1,0 +1,61 @@
+---
+title: Logistikos — Order creation sequence (async pipeline)
+---
+sequenceDiagram
+    actor Customer
+    participant Frontend as React Frontend
+    participant Controller as Rails Controller
+    participant Service as Orders::Creator
+    participant Sidekiq as Sidekiq Queue
+    participant Geocode as GeocodeWorker
+    participant Route as RouteCalcWorker
+    participant Price as PriceEstimationWorker
+    participant Match as DriverMatchWorker
+    participant DB as Supabase PostGIS
+
+    Customer->>Frontend: Fill order form
+    Frontend->>Controller: POST /delivery_orders (Inertia)
+    Controller->>Service: Orders::Creator.call(params)
+    Service->>DB: INSERT DeliveryOrder (status: processing)
+    Service->>Sidekiq: Enqueue GeocodeWorker
+
+    Service-->>Controller: order (status: processing)
+    Controller-->>Frontend: Inertia redirect (order show)
+    Frontend-->>Customer: "Order submitted! Processing..."
+
+    Note over Sidekiq,DB: Async pipeline begins
+
+    Sidekiq->>Geocode: Execute
+    activate Geocode
+    Geocode->>DB: PostGIS geocode(pickup_address)
+    DB-->>Geocode: pickup lat/lng
+    Geocode->>DB: PostGIS geocode(dropoff_address)
+    DB-->>Geocode: dropoff lat/lng
+    Geocode->>DB: UPDATE pickup_location, dropoff_location
+    Geocode->>Sidekiq: Enqueue RouteCalcWorker
+    deactivate Geocode
+
+    Sidekiq->>Route: Execute
+    activate Route
+    Route->>DB: pgr_dijkstra(pickup → dropoff)
+    DB-->>Route: route geometry + distance + duration
+    Route->>DB: UPDATE route_geometry, distance, duration
+    Route->>Sidekiq: Enqueue PriceEstimationWorker
+    Route->>Sidekiq: Enqueue DriverMatchWorker
+    deactivate Route
+
+    Sidekiq->>Price: Execute
+    activate Price
+    Price->>DB: Calculate price (distance, load, time)
+    Price->>DB: UPDATE estimated_price
+    deactivate Price
+
+    Sidekiq->>Match: Execute
+    activate Match
+    Match->>DB: ST_DWithin(driver_location, pickup, radius)
+    DB-->>Match: eligible drivers[]
+    Match->>DB: INSERT notifications (batch)
+    Match->>DB: UPDATE order status → open
+    deactivate Match
+
+    Note over Customer,DB: Order now visible in driver feed

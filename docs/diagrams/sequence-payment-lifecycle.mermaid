@@ -1,0 +1,58 @@
+---
+title: Logistikos — Payment lifecycle (authorize → capture → refund)
+---
+sequenceDiagram
+    participant Customer
+    participant Frontend as React Frontend
+    participant Controller as PaymentMethods Controller
+    participant Processor as Payments::Processor
+    participant Adapter as Gateway Adapter
+    participant Gateway as MockAdapter / Stripe
+    participant DB as Database
+
+    Note over Customer,DB: 1. Add payment method
+
+    Customer->>Frontend: Enter card details
+    Frontend->>Gateway: Tokenize via Stripe.js / MockAdapter
+    Gateway-->>Frontend: gateway_token
+    Frontend->>Controller: POST /payment_methods {token, last4, brand}
+    Controller->>DB: INSERT PaymentMethod (encrypted token)
+
+    Note over Customer,DB: 2. Authorize on order acceptance
+
+    Controller->>Processor: authorize(order, payment_method)
+    activate Processor
+    Processor->>Processor: Generate idempotency_key
+    Processor->>Adapter: authorize(amount, token, idempotency_key)
+    Adapter->>Gateway: API call
+    Gateway-->>Adapter: {authorization_id, status: ok}
+    Adapter-->>Processor: Result
+    Processor->>DB: INSERT Payment (status: authorized)
+    deactivate Processor
+
+    Note over Customer,DB: 3. Capture on delivery completion
+
+    Controller->>Processor: capture(payment)
+    activate Processor
+    Processor->>DB: Check payment.status == authorized
+    Processor->>Adapter: capture(authorization_id, idempotency_key)
+    Adapter->>Gateway: API call
+    Gateway-->>Adapter: {status: captured}
+    Processor->>DB: UPDATE Payment (status: captured)
+    Processor->>DB: INSERT DriverEarning
+    Note right of DB: net = gross - platform_fee (15%)
+    deactivate Processor
+
+    Note over Customer,DB: 4. Refund on cancellation
+
+    alt Before capture (void)
+        Controller->>Processor: refund(payment)
+        Processor->>Adapter: void(authorization_id)
+        Adapter->>Gateway: Void authorization
+        Processor->>DB: UPDATE Payment (status: voided)
+    else After capture (refund)
+        Controller->>Processor: refund(payment)
+        Processor->>Adapter: refund(payment_id, amount)
+        Adapter->>Gateway: Issue refund
+        Processor->>DB: UPDATE Payment (status: refunded)
+    end

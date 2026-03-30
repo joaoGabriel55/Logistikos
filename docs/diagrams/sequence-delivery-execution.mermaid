@@ -1,0 +1,84 @@
+---
+title: Logistikos — Delivery execution sequence (accept → track → complete)
+---
+sequenceDiagram
+    actor Driver
+    actor Customer
+    participant DFrontend as Driver Frontend
+    participant CFrontend as Customer Frontend
+    participant Controller as Rails Controller
+    participant Acceptor as Orders::Acceptor
+    participant Sidekiq as Sidekiq Workers
+    participant PayAuth as PaymentAuthWorker
+    participant Gateway as Payment Gateway
+    participant GPS as useGpsTracking Hook
+    participant LocWorker as LocationFlushWorker
+    participant ETA as ETARecalcWorker
+    participant DB as Supabase PostGIS
+    participant Redis
+
+    Driver->>DFrontend: Click "Accept order"
+    DFrontend->>Controller: POST /assignments (Inertia)
+    Controller->>Acceptor: Orders::Acceptor.call(order, driver)
+    Acceptor->>DB: SELECT FOR UPDATE (optimistic lock)
+    alt Order already taken
+        DB-->>Acceptor: Lock conflict
+        Acceptor-->>Controller: Error "Already taken"
+        Controller-->>DFrontend: Flash error
+    else Order available
+        Acceptor->>DB: INSERT Assignment
+        Acceptor->>DB: UPDATE order status → accepted
+        Acceptor->>Sidekiq: Enqueue PaymentAuthWorker
+        Acceptor->>Sidekiq: Enqueue NotificationWorker
+        Acceptor->>Sidekiq: Enqueue FeedInvalidation
+        Acceptor->>Sidekiq: Enqueue RouteSnapshotWorker
+        Acceptor-->>Controller: Success
+        Controller-->>DFrontend: Redirect → ActiveDelivery
+    end
+
+    Sidekiq->>PayAuth: Execute
+    activate PayAuth
+    PayAuth->>Gateway: authorize(amount, payment_method)
+    Gateway-->>PayAuth: authorization_id
+    PayAuth->>DB: UPDATE payment status → authorized
+    deactivate PayAuth
+
+    Note over Driver,Customer: Driver starts pickup
+
+    Driver->>DFrontend: Tap "Start pickup"
+    DFrontend->>Controller: PATCH /assignments/:id/status
+    Controller->>DB: UPDATE status → pickup_in_progress
+    DFrontend->>GPS: Start watchPosition()
+    activate GPS
+
+    loop Every 5-10 seconds
+        GPS->>Redis: Buffer location update
+        Redis->>LocWorker: Batch flush (10-15s)
+        LocWorker->>DB: UPDATE assignment.driver_location
+    end
+
+    loop Every 30-60 seconds
+        Sidekiq->>ETA: Recalculate
+        ETA->>DB: pgr_dijkstra(current_pos → dropoff)
+        DB-->>ETA: updated ETA
+        ETA->>DB: UPDATE cached_eta_seconds
+    end
+
+    CFrontend->>Controller: GET /api/locations/:order_id (poll 5-15s)
+    Controller->>DB: SELECT driver_location, cached_eta
+    Controller-->>CFrontend: {lat, lng, eta, route_geojson}
+    CFrontend->>Customer: Live map + ETA update
+
+    Note over Driver,Customer: Driver completes delivery
+
+    Driver->>DFrontend: Tap "Delivery complete"
+    DFrontend->>Controller: PATCH /assignments/:id/status
+    Controller->>DB: UPDATE status → completed
+    GPS->>DFrontend: Stop watchPosition()
+    deactivate GPS
+    Controller->>Sidekiq: Enqueue PaymentCaptureWorker
+    Sidekiq->>Gateway: capture(authorization_id)
+    Gateway-->>Sidekiq: capture confirmed
+    Sidekiq->>DB: UPDATE payment → captured
+    Sidekiq->>DB: INSERT DriverEarning (net = gross - fee)
+    Sidekiq->>DB: INSERT notification (customer)

@@ -1,0 +1,47 @@
+---
+title: Logistikos — System architecture
+---
+graph TB
+    subgraph Frontend["Frontend — React + Inertia.js"]
+        UI["Inertia pages<br/>React 18 + TypeScript"]
+        MAP["Mapbox GL JS<br/>Map tiles + markers"]
+        TQ["TanStack Query<br/>Polling endpoints"]
+        STRIPE_JS["Stripe.js Elements<br/>Card tokenization"]
+    end
+
+    subgraph Backend["Backend — Ruby on Rails 8"]
+        CTRL["Controllers<br/>Inertia props + JSON API"]
+        SVC["Service objects<br/>OrderCreator, PriceEstimator,<br/>DriverMatcher, Payments::Processor"]
+        MDL["Models — ActiveRecord + PostGIS<br/>User, DeliveryOrder, Assignment,<br/>Payment, DriverProfile"]
+        AUTH["Rails 8 auth<br/>Sessions + OmniAuth"]
+    end
+
+    subgraph Workers["Background workers — Sidekiq"]
+        CQ["Critical queue<br/>Geocode, Route, Accept,<br/>PaymentAuth, PaymentCapture"]
+        DQ["Default queue<br/>Notifications, ETA recalc,<br/>PriceEstimate, PaymentRefund"]
+        MQ["Maintenance queue<br/>StaleOrder, StaleDelivery,<br/>DataRetention, NotifExpiry"]
+    end
+
+    subgraph External["External services"]
+        SUPA["Supabase PostgreSQL<br/>PostGIS + pgRouting"]
+        REDIS["Redis<br/>Sidekiq + cache + location buffer"]
+        LLM["LLM API<br/>Claude / GPT"]
+        PG["Payment gateway<br/>MockAdapter / Stripe"]
+    end
+
+    UI -->|"Inertia visits"| CTRL
+    TQ -->|"JSON polling"| CTRL
+    MAP -->|"Renders geodata from"| CTRL
+    STRIPE_JS -->|"Tokenized card data"| CTRL
+    CTRL --> SVC
+    SVC --> MDL
+    SVC -->|"Enqueue tasks"| Workers
+    MDL -->|"Spatial queries"| SUPA
+    AUTH --> MDL
+    CQ --> SUPA
+    CQ --> PG
+    DQ --> SUPA
+    DQ --> LLM
+    MQ --> SUPA
+    Workers --> REDIS
+    MDL --> REDIS
