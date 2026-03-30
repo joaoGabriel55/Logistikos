@@ -6,7 +6,7 @@ gem "rails", "~> 8.1.3"
 gem "propshaft"
 # Use PostgreSQL with PostGIS for spatial database features
 gem "pg", "~> 1.5"
-gem "activerecord-postgis-adapter", "~> 10.0"
+gem "activerecord-postgis-adapter", "~> 11.0"
 
 # Keep sqlite3 for legacy compatibility (can be removed after full migration)
 gem "sqlite3", ">= 2.1"
