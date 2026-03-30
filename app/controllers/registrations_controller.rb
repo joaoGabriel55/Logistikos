@@ -13,7 +13,7 @@ class RegistrationsController < ApplicationController
   end
 
   def create
-    user = User.new(registration_params)
+    user = User.new(registration_params.merge(role: :customer))
 
     if user.save
       create_session_for(user)
@@ -32,7 +32,7 @@ class RegistrationsController < ApplicationController
   private
 
   def registration_params
-    params.permit(:email, :password, :password_confirmation, :name, :role)
+    params.permit(:email, :password, :password_confirmation, :name)
   end
 
   def redirect_if_authenticated

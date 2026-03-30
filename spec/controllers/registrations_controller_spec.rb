@@ -32,13 +32,12 @@ RSpec.describe RegistrationsController, type: :controller do
         email: "newuser@example.com",
         password: "password123",
         password_confirmation: "password123",
-        name: "New User",
-        role: "customer"
+        name: "New User"
       }
     end
 
     context "with valid params" do
-      it "creates a new user" do
+      it "creates a new user with customer role by default" do
         expect {
           post :create, params: valid_params
         }.to change(User, :count).by(1)
@@ -56,18 +55,27 @@ RSpec.describe RegistrationsController, type: :controller do
         expect(flash[:notice]).to eq("Account created successfully.")
         expect(session[:session_id]).to be_present
       end
+    end
 
-      context "for a driver" do
-        let(:driver_params) do
-          valid_params.merge(role: "driver")
-        end
+    context "security: privilege escalation protection" do
+      it "ignores role parameter and defaults to customer" do
+        params_with_driver_role = valid_params.merge(role: "driver")
 
-        it "redirects to driver orders feed" do
-          post :create, params: driver_params
+        expect {
+          post :create, params: params_with_driver_role
+        }.to change(User, :count).by(1)
 
-          expect(response).to redirect_to("/driver/orders")
-          expect(User.last.role).to eq("driver")
-        end
+        user = User.last
+        expect(user.role).to eq("customer"), "User role should default to customer, ignoring the role param"
+        expect(response).to redirect_to("/customer/dashboard")
+      end
+
+      it "cannot escalate to driver role via mass assignment" do
+        post :create, params: valid_params.merge(role: "driver")
+
+        user = User.last
+        expect(user).not_to be_driver
+        expect(user).to be_customer
       end
     end
 
@@ -84,20 +92,6 @@ RSpec.describe RegistrationsController, type: :controller do
         expect(response).to have_http_status(:ok)
         inertia_data = JSON.parse(response.body)
         expect(inertia_data["props"]["errors"]["password"]).to eq("is too short (minimum is 8 characters)")
-      end
-
-      it "does not create a user with missing role" do
-        request.headers["X-Inertia"] = "true"
-        request.headers["X-Inertia-Version"] = "1"
-        invalid_params = valid_params.merge(role: nil)
-
-        expect {
-          post :create, params: invalid_params
-        }.not_to change(User, :count)
-
-        expect(response).to have_http_status(:ok)
-        inertia_data = JSON.parse(response.body)
-        expect(inertia_data["props"]["errors"]["role"]).to eq("can't be blank")
       end
 
       it "does not create a user with invalid email format" do

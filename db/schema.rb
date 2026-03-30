@@ -11,15 +11,11 @@
 # It's strongly recommended that you check this file into your version control system.
 
 ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
-  create_schema "topology"
-
   # These are extensions that must be enabled in order to support this database
   enable_extension "hstore"
-  enable_extension "pg_catalog.plpgsql"
-  enable_extension "pgrouting"
+  enable_extension "plpgsql"
   enable_extension "postgis"
   enable_extension "postgis_raster"
-  enable_extension "topology.postgis_topology"
 
   create_table "public.assignments", force: :cascade do |t|
     t.datetime "accepted_at", null: false
