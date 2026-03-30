@@ -3,15 +3,16 @@ class User < ApplicationRecord
   include DataExportable
   include HasConsent
 
-  has_secure_password
+  has_secure_password validations: false
 
   # Associations
   has_one :driver_profile, dependent: :destroy
-  has_many :delivery_orders, foreign_key: :created_by, dependent: :destroy
+  has_many :delivery_orders, foreign_key: :created_by_id, dependent: :destroy
   has_many :payment_methods, dependent: :destroy
   has_many :notifications, dependent: :destroy
   has_many :sessions, dependent: :destroy
   has_many :consents, dependent: :destroy
+  has_many :connected_services, dependent: :destroy
 
   # As a driver
   has_many :assignments, foreign_key: :driver_id, dependent: :restrict_with_error
@@ -27,9 +28,8 @@ class User < ApplicationRecord
   validates :name, presence: true
   validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :role, presence: true
-
-  # OAuth validations
-  validates :uid, uniqueness: { scope: :provider }, if: -> { provider.present? }
+  validates :password, presence: true, length: { minimum: 8 }, if: -> { password_digest.nil? || password.present? }
+  validates :password, confirmation: true, if: -> { password.present? }
 
   # PII encryption using Rails 8 built-in encryption
   encrypts :name

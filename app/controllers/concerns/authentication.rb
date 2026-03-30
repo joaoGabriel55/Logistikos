@@ -15,12 +15,26 @@ module Authentication
   end
 
   def authenticate
-    redirect_to login_path, alert: "You must be signed in to access this page." unless Current.user
+    unless Current.user
+      redirect_to login_path, alert: "You must be signed in to access this page."
+    end
+  end
+
+  def require_customer
+    unless Current.user&.customer?
+      render inertia: "Errors/Forbidden", status: :forbidden
+    end
+  end
+
+  def require_driver
+    unless Current.user&.driver?
+      render inertia: "Errors/Forbidden", status: :forbidden
+    end
   end
 
   def require_role(role)
     unless Current.user&.role == role.to_s
-      redirect_to root_path, alert: "You don't have permission to access this page."
+      render inertia: "Errors/Forbidden", status: :forbidden
     end
   end
 
@@ -30,5 +44,31 @@ module Authentication
 
   def logged_in?
     Current.user.present?
+  end
+
+  # Create a new session for the given user
+  # Sets up the session record and Current thread-local context
+  def create_session_for(user)
+    session_record = user.sessions.create!(
+      ip_address: request.remote_ip,
+      user_agent: request.user_agent
+    )
+    session[:session_id] = session_record.id
+    Current.user = user
+    Current.session = session_record
+  end
+
+  # Determine the post-login redirect path based on user role
+  def after_login_path(user)
+    return root_path unless user
+
+    case user.role
+    when "customer"
+      "/customer/dashboard"
+    when "driver"
+      "/driver/orders"
+    else
+      root_path
+    end
   end
 end

@@ -57,6 +57,15 @@ RSpec.configure do |config|
   # instead of true.
   config.use_transactional_fixtures = true
 
+  # OmniAuth test mode configuration
+  config.before(:each) do
+    OmniAuth.config.test_mode = false
+  end
+
+  config.after(:each) do
+    OmniAuth.config.mock_auth[:google_oauth2] = nil
+  end
+
   # You can uncomment this line to turn off ActiveRecord support entirely.
   # config.use_active_record = false
 
