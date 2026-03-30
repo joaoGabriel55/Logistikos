@@ -13,19 +13,11 @@ namespace :db do
           ActiveRecord::Base.establish_connection(config.configuration_hash)
           connection = ActiveRecord::Base.connection
 
-          # Enable core PostGIS extensions
+          # Enable core PostGIS extensions (without CASCADE to avoid tiger_geocoder)
           core_extensions = %w[postgis postgis_raster]
           core_extensions.each do |ext|
-            connection.execute("CREATE EXTENSION IF NOT EXISTS #{ext} CASCADE")
+            connection.execute("CREATE EXTENSION IF NOT EXISTS #{ext}")
             puts "  ✓ Enabled #{ext}"
-          end
-
-          # pgrouting is optional and may not be available in all environments
-          begin
-            connection.execute("CREATE EXTENSION IF NOT EXISTS pgrouting")
-            puts "  ✓ Enabled pgrouting"
-          rescue ActiveRecord::StatementInvalid => e
-            puts "  ⚠️  Skipped pgrouting (not available): #{e.message.lines.first.strip}"
           end
 
           puts "PostGIS setup complete for #{config.name}!"

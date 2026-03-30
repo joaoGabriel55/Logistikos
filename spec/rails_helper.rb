@@ -33,9 +33,9 @@ begin
   # Ensure PostGIS extensions are set up before running migrations
   if ENV['SKIP_POSTGIS_SETUP'] != 'true'
     begin
-      ActiveRecord::Base.connection.execute("CREATE EXTENSION IF NOT EXISTS postgis CASCADE")
+      # Create PostGIS without CASCADE to avoid tiger_geocoder conflicts
+      ActiveRecord::Base.connection.execute("CREATE EXTENSION IF NOT EXISTS postgis")
       ActiveRecord::Base.connection.execute("CREATE EXTENSION IF NOT EXISTS postgis_raster")
-      ActiveRecord::Base.connection.execute("CREATE EXTENSION IF NOT EXISTS pgrouting")
     rescue => e
       puts "Warning: Could not setup PostGIS extensions: #{e.message}"
       puts "This is expected if PostGIS is not installed on your system."
