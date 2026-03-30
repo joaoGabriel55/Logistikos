@@ -66,13 +66,13 @@ namespace :db do
   namespace :test do
     task prepare: :environment do
       # Ensure test database exists
-      ActiveRecord::Tasks::DatabaseTasks.create_current('test')
+      ActiveRecord::Tasks::DatabaseTasks.create_current("test")
 
       # Setup PostGIS extensions before loading schema
-      Rake::Task['db:postgis:setup'].invoke
+      Rake::Task["db:postgis:setup"].invoke
 
       # Load schema
-      ActiveRecord::Tasks::DatabaseTasks.load_schema_current('test')
+      ActiveRecord::Tasks::DatabaseTasks.load_schema_current("test")
 
       puts "\n✓ Test database prepared with PostGIS extensions!"
     end
@@ -80,9 +80,9 @@ namespace :db do
 end
 
 # Enhance db:create to automatically setup PostGIS
-Rake::Task['db:create'].enhance do
-  Rake::Task['db:postgis:setup'].invoke if defined?(ActiveRecord)
+Rake::Task["db:create"].enhance do
+  Rake::Task["db:postgis:setup"].invoke if defined?(ActiveRecord)
 end
 
 # Enhance db:setup to include PostGIS
-Rake::Task['db:setup'].enhance(['db:postgis:setup']) if Rake::Task.task_defined?('db:setup')
+Rake::Task["db:setup"].enhance([ "db:postgis:setup" ]) if Rake::Task.task_defined?("db:setup")
