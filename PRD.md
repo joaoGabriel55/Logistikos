@@ -217,7 +217,7 @@ Customers can create delivery orders with:
 
 **⚡ Background Tasks on Order Creation:**
 
-When a customer submits a delivery order, the API returns immediately with status `201 Created` and the order in a `processing` state. The following tasks run asynchronously via Sidekiq background workers:
+When a customer submits a delivery order, the API returns immediately with status `201 Created` and the order in a `processing` state. The following tasks run asynchronously via Solid Queue background workers:
 
 * **Geocoding Task** — Convert pickup and drop-off addresses to lat/lng coordinates using PostGIS geocoding functions (inside Supabase).
 * **Route Calculation Task** — Compute the shortest-path route between pickup and drop-off using pgRouting (`pgr_dijkstra` or `pgr_astar`) over the imported OSM road network inside Supabase. The resulting route geometry is stored as a GeoJSON polyline (`ST_AsGeoJSON`), along with total distance (`ST_Length`) and estimated duration.
@@ -243,7 +243,7 @@ Each order card includes:
 
 **⚡ Background Tasks:**
 
-* **Feed Indexing Task** — Periodically rebuilds or updates a denormalized feed cache (Redis or materialized view) with pre-computed pickup distances relative to each driver's last known location using PostGIS spatial queries inside Supabase, so feed queries remain fast regardless of order volume.
+* **Feed Indexing Task** — Periodically rebuilds or updates a denormalized feed cache (database-backed cache or materialized view) with pre-computed pickup distances relative to each driver's last known location using PostGIS spatial queries inside Supabase, so feed queries remain fast regardless of order volume.
 * **Stale Order Cleanup Task** — A recurring task that marks `open` orders older than a configurable threshold (e.g., 2 hours for immediate, 24 hours for scheduled) as `expired` and notifies the customer.
 
 ---
@@ -291,7 +291,7 @@ Drivers receive notifications when:
 
 **⚡ Background Tasks:**
 
-* **Notification Dispatch Worker** — When a new order is created (or a status changes), a Sidekiq worker evaluates driver preference rules (radius via PostGIS inside Supabase, vehicle type, availability) and creates notification records in batch. This prevents the order creation endpoint from scaling linearly with driver count.
+* **Notification Dispatch Worker** — When a new order is created (or a status changes), a Solid Queue worker evaluates driver preference rules (radius via PostGIS inside Supabase, vehicle type, availability) and creates notification records in batch. This prevents the order creation endpoint from scaling linearly with driver count.
 * **Notification Expiry Task** — A scheduled task that marks unread notifications as `expired` once the associated order is no longer `open` (accepted, cancelled, or expired), keeping the notification feed clean.
 
 ---
@@ -367,8 +367,8 @@ Users (Drivers and Customers) can open an interactive map viewer that displays:
 
 **⚡ Background Tasks:**
 
-* **Location Ingestion Worker** — Driver location updates (sent from the driver's device GPS every 5–10 seconds via the `useGpsTracking` hook) are written to a lightweight buffer (Redis or in-memory queue) and flushed to the Assignment table in batches (every 10–15 seconds). This prevents high-frequency `UPDATE` pressure on Supabase.
-* **ETA Recalculation Task** — Every 30–60 seconds for active deliveries, a Sidekiq worker recalculates the ETA using pgRouting (`pgr_dijkstra` from driver's current position to drop-off inside Supabase) and updates the cached route metadata. The frontend simply reads the updated ETA from the API.
+* **Location Ingestion Worker** — Driver location updates (sent from the driver's device GPS every 5–10 seconds via the `useGpsTracking` hook) are batched and flushed to the Assignment table in batches (every 10–15 seconds). This prevents high-frequency `UPDATE` pressure on Supabase.
+* **ETA Recalculation Task** — Every 30–60 seconds for active deliveries, a Solid Queue recurring task recalculates the ETA using pgRouting (`pgr_dijkstra` from driver's current position to drop-off inside Supabase) and updates the cached route metadata. The frontend simply reads the updated ETA from the API.
 * **Stale Location Detector Task** — A periodic task that checks for active deliveries where `last_location_updated_at` is older than 60 seconds and marks the location data as `stale`, so the frontend can display a warning badge instead of a misleading position.
 
 > **GPS Requirement:** During `pickup_in_progress` and `in_transit` statuses, the driver's location **MUST** come from the device GPS via the browser Geolocation API (`navigator.geolocation.watchPosition` with `enableHighAccuracy: true`). Manual location input is not permitted during active delivery. If GPS permission is denied, the driver is shown a persistent warning banner and prompted to enable location services. As a last resort, a manual position fallback is available but clearly marked as "manual/degraded" for transparency.
@@ -399,7 +399,7 @@ The payment system is designed to be **gateway-agnostic**. The architecture allo
 
 **⚡ Background Tasks:**
 
-All payment operations run via Sidekiq workers — they never block the user request path:
+All payment operations run via Solid Queue workers — they never block the user request path:
 
 * **Payment Authorization Worker** (`critical` queue) — On order acceptance, authorizes the estimated amount on the customer's payment method via the gateway. If authorization fails, the order reverts to `open` and the customer is notified to update their payment method.
 * **Payment Capture Worker** (`critical` queue) — On delivery completion, captures the final amount from the authorized hold. Creates a `DriverEarning` record with the net amount after platform fee.
@@ -435,7 +435,7 @@ All payment operations run via Sidekiq workers — they never block the user req
 * **If delivery is cancelled before capture, the authorization is voided; if after capture, a full refund is issued**
 * **Driver earnings = captured amount minus platform fee** (configurable, default 15%)
 * **GPS must be enabled on the driver's device during active delivery** (`pickup_in_progress`, `in_transit`); manual location input is not permitted during active delivery
-* **PII fields are encrypted at rest** and filtered from all logs, error reports, and Sidekiq arguments
+* **PII fields are encrypted at rest** and filtered from all logs, error reports, and background job arguments
 
 ---
 
@@ -492,7 +492,7 @@ All payment operations run via Sidekiq workers — they never block the user req
 
 ### Scalability (MVP Level)
 * Designed for low/medium traffic
-* Sidekiq workers can be scaled horizontally independent of the Rails server
+* Solid Queue workers can be scaled horizontally independent of the Rails server
 * Supabase PostGIS spatial indexes handle location queries efficiently without external API rate limits
 
 ### Reliability
@@ -506,10 +506,10 @@ All payment operations run via Sidekiq workers — they never block the user req
 ### Security
 * Authenticated access only
 * Location data visible only to participants of the delivery
-* Sidekiq workers run within the same trust boundary as the Rails app; no public endpoints exposed
+* Solid Queue workers run within the same trust boundary as the Rails app; no public endpoints exposed
 * **PII encrypted at rest** using Rails Active Record Encryption (`encrypts` directive) — email (deterministic/searchable), name, phone, addresses (non-deterministic)
 * **PII filtered from logs** via `config.filter_parameters` and per-model `self.filter_attributes`
-* **Sidekiq workers receive only record IDs** — PII data is never passed as worker arguments
+* **Background workers receive only record IDs** — PII data is never passed as worker arguments
 * **Payment data is tokenized** via the gateway — raw card numbers, CVVs, and full card data never enter the system
 * **Payment gateway API keys** stored in Rails credentials (`bin/rails credentials:edit`)
 * **HTTPS enforced** in production (`config.force_ssl = true` with HSTS)
@@ -542,7 +542,7 @@ The application follows the **Model-View-Controller (MVC)** pattern using **Ruby
 **How it works:**
 - **Model** — Rails ActiveRecord models with PostGIS/ActiveRecord spatial extensions (`activerecord-postgis-adapter`). Business logic, validations, and domain rules live in models and service objects (POROs).
 - **View** — React components (TypeScript) rendered via Inertia.js. No traditional ERB views. Each Inertia page receives props directly from the controller — no REST API layer, no client-side data fetching for page loads.
-- **Controller** — Standard Rails controllers using `render inertia:` to pass data as props to React page components. Controllers orchestrate model interactions and delegate background work to Sidekiq.
+- **Controller** — Standard Rails controllers using `render inertia:` to pass data as props to React page components. Controllers orchestrate model interactions and delegate background work to Solid Queue.
 
 **Key architectural benefits:**
 - **No API to build or maintain** — Inertia eliminates the need for a separate REST/GraphQL API for page rendering. Controllers pass serialized data directly to React components as props.
@@ -598,9 +598,9 @@ The application follows the **Model-View-Controller (MVC)** pattern using **Ruby
 └──────────────────────────────────────────────────────────────┘
         │                    │                    │
    ┌────▼────┐         ┌────▼────┐         ┌────▼────┐         ┌────▼─────┐
-   │ Supabase │         │  Redis  │         │ LLM API │         │ Stripe   │
-   │PostGIS + │         │ Sidekiq │         │ Claude/ │         │ (Payment │
-   │ pgRouting│         │  Cache  │         │  GPT    │         │ Gateway) │
+   │ Supabase │         │  Solid  │         │ LLM API │         │ Stripe   │
+   │PostGIS + │         │  Queue  │         │ Claude/ │         │ (Payment │
+   │ pgRouting│         │ Workers │         │  GPT    │         │ Gateway) │
    └──────────┘         └─────────┘         └─────────┘         └──────────┘
 ```
 
@@ -619,7 +619,7 @@ The application follows the **Model-View-Controller (MVC)** pattern using **Ruby
 * **Ruby on Rails 8.1.3+** — MVC framework
 * **Inertia Rails (`inertia_rails` gem)** — Server-side Inertia adapter; replaces traditional ERB views with React component rendering
 * **Rails 8 built-in authentication** (`bin/rails generate authentication`) — Session-based auth with `has_secure_password`, `Current.user`, and authentication concerns. OmniAuth for Google OAuth integration. No Devise, no JWT.
-* **Sidekiq** — Redis-backed background task processing (geocoding, routing, notifications, ETA recalculation, payment processing)
+* **Solid Queue** — Database-backed background task processing (geocoding, routing, notifications, ETA recalculation, payment processing)
 * **AASM or state_machines** — Order and Payment status lifecycle management
 * **Jbuilder or Alba** — Props serialization for Inertia responses
 * **`stripe` gem** — Payment gateway production adapter (server-side API calls for authorize, capture, refund). **Not required for MVP** — MockAdapter is the default.
@@ -634,12 +634,13 @@ The application follows the **Model-View-Controller (MVC)** pattern using **Ruby
 > **Cost advantage:** All geocoding, distance, routing, and spatial queries run inside Supabase PostgreSQL — zero external API calls, zero per-request costs, no rate limits. Mapbox is used only for frontend map tiles (free tier covers MVP volume).
 
 ### Caching / Buffering
-* **Redis** — used for Sidekiq task queues, location buffering, feed caching, and notification state
+* **Solid Cache** (Rails 8 built-in) — database-backed caching for feed data and notification state
+* **Optional:** Redis for high-frequency location buffering (if needed; can start with database writes)
 
 ### AI / LLM Layer
 * **Anthropic Claude API** (or OpenAI API) — powers natural language order parsing, smart pricing reasoning, and ETA narrative generation
 * **Model selection:** Claude Haiku / GPT-4o-mini for high-frequency low-latency tasks (ETA narratives); Claude Sonnet / GPT-4o for complex reasoning (NL order parsing, price estimation)
-* All AI calls are **asynchronous** (Sidekiq workers) — never block the user request path
+* All AI calls are **asynchronous** (Solid Queue workers) — never block the user request path
 * **Fallback strategy:** if LLM is unavailable, fall back to rule-based logic (formula pricing, keyword extraction for orders)
 
 ### Real-Time Strategy (MVP)
@@ -647,8 +648,8 @@ The application follows the **Model-View-Controller (MVC)** pattern using **Ruby
 * Polling endpoints are standard Rails JSON controllers consumed via TanStack Query on the frontend
 
 ### Deployment
-* **Final deployment target: Render.com** (https://render.com/) — Public web service (free tier) + Redis instance. The app **must** be deployed to Render.com for the competition submission.
-* **Docker** — multi-container setup via `docker-compose` (Rails app, Sidekiq worker, Redis). **No Postgres container** — database is external Supabase PostgreSQL.
+* **Final deployment target: Render.com** (https://render.com/) — Public web service (free tier). The app **must** be deployed to Render.com for the competition submission.
+* **Docker** — single container with Rails app + Solid Queue workers. **No Postgres container** — database is external Supabase PostgreSQL.
 * **Dockerfile** — multi-stage build, production-optimized
 * `.env.example` with all required environment variables documented
 
@@ -876,7 +877,7 @@ Logistikos/
 │   │       └── adapters/
 │   │           ├── base_adapter.rb
 │   │           └── stripe_adapter.rb
-│   ├── workers/                        # Sidekiq workers
+│   ├── jobs/                           # Solid Queue workers (ActiveJob)
 │   │   ├── geocode_worker.rb
 │   │   ├── route_calculation_worker.rb
 │   │   ├── price_estimation_worker.rb
@@ -963,9 +964,9 @@ Logistikos/
 │   │   ├── inertia_rails.rb            # Inertia configuration
 │   │   ├── payment_gateway.rb           # Payment gateway adapter config
 │   │   ├── active_record_encryption.rb  # Encryption key configuration
-│   │   ├── filter_parameter_logging.rb  # PII filter parameters
-│   │   └── sidekiq.rb
-│   └── sidekiq.yml                     # Queue configuration
+│   │   └── filter_parameter_logging.rb  # PII filter parameters
+│   ├── queue.yml                       # Solid Queue configuration
+│   └── recurring.yml                   # Solid Queue recurring tasks
 ├── db/
 │   ├── migrate/                        # Rails migrations (PostGIS enabled)
 │   └── seeds.rb                        # Demo data for live presentation
@@ -990,30 +991,30 @@ Logistikos/
 * **Supabase project creation + PostGIS + pgRouting extensions enabled + regional OSM data import via `osm2pgrouting` directly into Supabase**
 * Authentication (Rails 8 built-in auth + OmniAuth Google) with Inertia page rendering
 * User model + DriverProfile model with PostGIS spatial columns
-* Delivery order model + creation flow + **background geocoding (Supabase PostGIS) & routing (pgRouting) pipeline via Sidekiq**
+* Delivery order model + creation flow + **background geocoding (Supabase PostGIS) & routing (pgRouting) pipeline via Solid Queue**
 * **AI: Smart Price Estimation service**
-* **AI: Natural Language Order Description (LLM integration via Sidekiq worker)**
+* **AI: Natural Language Order Description (LLM integration via Solid Queue worker)**
 * Order listing (driver feed) + **feed cache layer with Supabase PostGIS spatial queries**
 * Mobile-first layout components (MobileLayout, BottomNav, TopBar)
 * Basic Inertia pages (Customer: OrderCreate, Driver: OrderFeed)
-* **Redis + Sidekiq setup with queue configuration (critical, default, maintenance)**
+* **Solid Queue setup with queue configuration (critical, default, maintenance)**
 * **Basic map integration (Mapbox GL JS — static pins + route preview from cached polyline)**
 * **RSpec unit tests for core business rules (pricing, order lifecycle, assignment logic)**
 
 ### Week 2 (04/04 – 04/10)
-* Order acceptance logic + **optimistic locking + async notification dispatch via Sidekiq**
+* Order acceptance logic + **optimistic locking + async notification dispatch via Solid Queue**
 * Status lifecycle + **status transition service with side effects**
 * Filtering system **(Supabase PostGIS-powered radius & distance filters)**
 * **AI: Intelligent Order Ranking for driver feed**
 * **AI: ETA Narratives for customer tracking**
-* **Location ingestion worker + ETA recalculation task (pgRouting via Sidekiq)**
+* **Location ingestion worker + ETA recalculation task (pgRouting via Solid Queue)**
 * **Real-time location updates + live map viewer**
-* **Stale order/delivery/location monitor tasks (Sidekiq scheduled tasks)**
+* **Stale order/delivery/location monitor tasks (Solid Queue recurring tasks)**
 * Notification polling (JSON API endpoint + TanStack Query) + **notification expiry task**
 * **Integration tests for critical flows (order creation → assignment → completion)**
 * **Payment system** — gateway abstraction (adapter pattern), **MockAdapter (MVP default)** + Stripe adapter, Payment/PaymentMethod/DriverEarning models, authorize/capture/refund workers, payment method UI (mock-friendly form with optional Stripe.js Elements)
 * **GPS tracking integration** — `useGpsTracking` hook wrapping `navigator.geolocation.watchPosition`, GPS permission flow, update ActiveDelivery page
-* **Privacy-by-design** — PII encryption on User/DeliveryOrder/PaymentMethod models (`encrypts` directive), `config.filter_parameters`, `self.filter_attributes`, Sidekiq arg protection, data retention worker, DSAR foundation concerns (`Anonymizable`, `DataExportable`), consent management
+* **Privacy-by-design** — PII encryption on User/DeliveryOrder/PaymentMethod models (`encrypts` directive), `config.filter_parameters`, `self.filter_attributes`, background job arg protection, data retention worker, DSAR foundation concerns (`Anonymizable`, `DataExportable`), consent management
 * Mobile UI polish + error handling audit + touch interaction refinement
 * **Dockerfile + docker-compose for production deployment on Render.com**
 * **Deploy to Render.com** — public link (final required target)
@@ -1043,7 +1044,7 @@ Testing is a key evaluation criterion. The project must have meaningful tests co
 * **Privacy concerns** — Anonymizable (PII replaced with `[ANONYMIZED]`), DataExportable (complete user data export), HasConsent (consent checking logic)
 
 ### Integration Tests
-* **Order creation → geocoding → routing → open** (full async pipeline with Sidekiq `perform_inline`)
+* **Order creation → geocoding → routing → open** (full async pipeline with Solid Queue `perform_inline`)
 * **Order acceptance → payment authorization → notification → feed invalidation** (assignment + payment flow)
 * **Delivery completion → payment capture → driver earning creation** (payment capture flow)
 * **Order cancellation → payment void/refund** (cancellation flow)
@@ -1060,7 +1061,7 @@ Testing is a key evaluation criterion. The project must have meaningful tests co
 * **FactoryBot** — test fixtures and factories
 * **Shoulda Matchers** — model validation tests
 * **Capybara + Selenium** — system/E2E tests
-* **Sidekiq Testing** — inline mode for integration tests
+* **Solid Queue Testing** — inline mode for integration tests
 * **Database Cleaner** — test database management
 * Test database with Supabase connection (or local replica for CI)
 
@@ -1075,13 +1076,11 @@ The app **must** be deployed to **Render.com** (https://render.com/) for the fin
 **Dockerfile / docker-compose:**
 * Multi-stage build (Rails app with precompiled frontend assets)
 * **No Postgres container** — external Supabase PostgreSQL (with PostGIS + pgRouting)
-* Redis container
-* Sidekiq worker process container
+* Solid Queue workers run in same container as Rails app (via `bin/jobs`)
 * Environment variables documented in `.env.example`
 
 **Environment Variables (documented in README):**
 * `DATABASE_URL` — Supabase PostgreSQL connection string
-* `REDIS_URL` — Redis connection string
 * `MAPBOX_TOKEN` — Mapbox GL JS public token (frontend only)
 * `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`
 * `SECRET_KEY_BASE` — Rails secret key
@@ -1095,7 +1094,7 @@ The app **must** be deployed to **Render.com** (https://render.com/) for the fin
 > **Note:** `STRIPE_SECRET_KEY` is stored in Rails credentials (`bin/rails credentials:edit`), NOT as an environment variable, for security. **Not required when using MockAdapter (MVP default).**
 
 **Public Deploy:**
-* **Required:** Render.com free tier (web service + Redis instance) with external Supabase database
+* **Required:** Render.com free tier (web service) with external Supabase database
 * Alternative (for local testing only): Railway, Fly.io, or any VPS with Docker
 
 ---
@@ -1109,8 +1108,8 @@ The app **must** be deployed to **Render.com** (https://render.com/) for the fin
 | Stage | AI Usage |
 |---|---|
 | **Ideation** | Problem exploration, market analysis, feature brainstorming sessions with Claude |
-| **Architecture** | MVC structure decisions, Inertia.js integration patterns, database schema design, Supabase PostGIS/pgRouting architecture decisions, Sidekiq queue design |
-| **Code generation** | Feature implementation via Claude Code (primary tool), including complex PostGIS queries, React components, Rails controllers, Inertia page setup, Sidekiq workers |
+| **Architecture** | MVC structure decisions, Inertia.js integration patterns, database schema design, Supabase PostGIS/pgRouting architecture decisions, Solid Queue design |
+| **Code generation** | Feature implementation via Claude Code (primary tool), including complex PostGIS queries, React components, Rails controllers, Inertia page setup, background workers |
 | **Testing** | Test case generation, edge case discovery, RSpec test fixture creation |
 | **Documentation** | PRD writing, README generation, API documentation |
 | **Design** | UI/UX decisions, mobile-first component structure, touch-optimized layout guidance |
@@ -1165,9 +1164,9 @@ All code development performed using **Claude Code** as required by competition 
 | **pgRouting performance on large graphs** | Limit OSM import to operational region; use `pgr_astar` for faster heuristic routing; add GiST indexes on all geometry columns inside Supabase |
 | **PostGIS geocoding accuracy** | Use Tiger Geocoder or import authoritative address data for target region; fall back to address text display if geocoding fails |
 | **Background task failure / data inconsistency** | Idempotent tasks, exponential retry, dead-letter queue, health monitoring dashboard |
-| **Location update storms under load** | Buffer writes in Redis, batch flush to Supabase, rate-limit client-side reporting |
+| **Location update storms under load** | Batch flush to database, rate-limit client-side reporting, use database buffering |
 | **Race conditions on order acceptance** | Optimistic locking with row-level locks; return clear "already taken" error to losing drivers |
-| **LLM API latency for AI features** | AI features run asynchronously (Sidekiq workers); cache results; graceful fallback to rule-based logic if LLM is unavailable |
+| **LLM API latency for AI features** | AI features run asynchronously (Solid Queue workers); cache results; graceful fallback to rule-based logic if LLM is unavailable |
 | **LLM cost for AI features** | Use efficient models (Claude Haiku / GPT-4o-mini) for high-volume tasks (ETA narratives); cache repeated patterns; rate-limit AI calls per user |
 | **AI hallucination in NL order parsing** | Validate parsed fields against schema; show confirmation screen before submitting; reject unparseable inputs gracefully |
 | **Inertia.js learning curve** | Follow official `inertia-rails.dev` documentation; use starter kit as reference; leverage Claude Code for implementation patterns |
@@ -1210,7 +1209,7 @@ A consolidated reference of all background tasks in the system, their triggers, 
 | **Feed Invalidation** | Order accepted/cancelled | Remove order from all driver feed caches | < 1s |
 | **Route Snapshot** | Order accepted | Cache full route polyline via pgRouting inside Supabase for frontend map rendering | < 3s |
 | **Notification Expiry** | Cron (every 1 min) | Mark notifications for closed orders as expired | — |
-| **Location Ingestion** | Driver location update (5–10s) | Buffer to Redis, batch flush to Supabase (PostGIS point) | < 200ms |
+| **Location Ingestion** | Driver location update (5–10s) | Batch flush to Supabase (PostGIS point) | < 200ms |
 | **ETA Recalculation** | Cron per active delivery (30–60s) | Recalculate ETA via pgRouting inside Supabase from driver's current position | < 5s |
 | **Stale Location Detector** | Cron (every 30s) | Flag deliveries with stale location data | — |
 | **Stale Delivery Monitor** | Cron (every 5 min) | Flag deliveries with no status update for 30+ min | — |
@@ -1220,7 +1219,7 @@ A consolidated reference of all background tasks in the system, their triggers, 
 | **Payment Refund** | Delivery cancelled | Void authorization or issue refund via gateway | < 5s |
 | **Data Retention Cleanup** | Cron (weekly) | Anonymize PII on inactive users past retention period; clean old location data | — |
 
-### Queue Architecture (MVP — Sidekiq)
+### Queue Architecture (MVP — Solid Queue)
 
 Three queues to separate concerns and allow independent scaling:
 
