@@ -8,12 +8,12 @@ Build the driver matching service that uses PostGIS spatial queries to find elig
   - `ST_DWithin` — drivers within their preferred radius of the pickup location
   - Vehicle compatibility — driver's vehicle can handle the order's load size
   - Availability — driver `is_available: true`
-- [ ] `DriverMatchWorker` (Sidekiq, `critical` queue):
+- [ ] `DriverMatchJob` (Solid Queue, `critical` queue):
   - Receives order ID
   - Calls `DriverMatcher` to get eligible driver list
-  - Enqueues `NotificationDispatchWorker` with the list
+  - Enqueues `NotificationDispatchJob` with the list
   - Transitions order to `open` status
-- [ ] `NotificationDispatchWorker` (Sidekiq, `default` queue):
+- [ ] `NotificationDispatchJob` (Solid Queue, `default` queue):
   - Creates Notification records in batch for all matched drivers
   - Notification type: `new_order`
   - Message includes order summary (pickup area, load size, price)
@@ -23,7 +23,7 @@ Build the driver matching service that uses PostGIS spatial queries to find elig
   - van: small, medium, large
   - truck: small, medium, large, bulk
 - [ ] If no drivers match, order still transitions to `open` (drivers may become available later)
-- [ ] Workers are idempotent — duplicate runs don't create duplicate notifications
+- [ ] Jobs are idempotent — duplicate runs don't create duplicate notifications
 
 ## Dependencies
 - **007** — DriverProfile with location and vehicle type must exist
@@ -35,10 +35,10 @@ Build the driver matching service that uses PostGIS spatial queries to find elig
 
 ## Files to Create/Modify
 - `app/services/matching/driver_matcher.rb` — spatial matching service
-- `app/workers/driver_match_worker.rb` — matching orchestration worker
-- `app/workers/notification_dispatch_worker.rb` — batch notification creation
+- `app/jobs/driver_match_job.rb` — matching orchestration job (queue_as :critical)
+- `app/jobs/notification_dispatch_job.rb` — batch notification creation (queue_as :default)
 - `app/models/notification.rb` — ensure `new_order` notification type
-- `app/workers/price_estimation_worker.rb` — modify to chain `DriverMatchWorker`
+- `app/jobs/price_estimation_job.rb` — modify to chain `DriverMatchJob`
 
 ## Technical Notes
 - Spatial query for matching:
@@ -52,4 +52,4 @@ Build the driver matching service that uses PostGIS spatial queries to find elig
 - Batch insert notifications using `insert_all` for performance (avoid N+1 inserts)
 - Idempotency: check if notifications already exist for this order before creating
 - The notification message should be concise for quick scanning: "New delivery: Boa Viagem → Casa Forte | Medium | R$ 45"
-- This worker is the final step in the pipeline: `GeocodeWorker → RouteCalculationWorker → PriceEstimationWorker → DriverMatchWorker`
+- This job is the final step in the pipeline: `GeocodeJob → RouteCalculationJob → PriceEstimationJob → DriverMatchJob`

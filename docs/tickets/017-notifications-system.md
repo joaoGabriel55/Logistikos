@@ -13,12 +13,12 @@ Build the in-app notification system with polling-based updates. Includes the no
 - [ ] Mark-as-read functionality (individual and bulk)
 - [ ] Notification types: `new_order`, `order_accepted`, `status_update`, `delivery_complete`
 - [ ] Each notification links to the relevant order
-- [ ] `NotificationExpiryWorker` (Sidekiq, `maintenance` queue): marks notifications as `expired` when associated order is no longer `open` (accepted, cancelled, expired)
+- [ ] `NotificationExpiryJob` (Solid Queue, `maintenance` queue): marks notifications as `expired` when associated order is no longer `open` (accepted, cancelled, expired)
 - [ ] Expired notifications are excluded from the unread feed
 - [ ] Notification list follows DESIGN.md: no borders, card-style items, surface hierarchy
 
 ## Dependencies
-- **012** — Notification records are created by the matching/dispatch workers
+- **012** — Notification records are created by the matching/dispatch jobs
 - **006** — UI components (TopBar for badge)
 
 ## Estimated Effort
@@ -28,7 +28,7 @@ Build the in-app notification system with polling-based updates. Includes the no
 - `app/controllers/notifications_controller.rb` — Inertia page for notification list
 - `app/controllers/api/notifications_controller.rb` — JSON polling endpoint
 - `app/serializers/notification_serializer.rb` — notification serialization
-- `app/workers/notification_expiry_worker.rb` — scheduled expiry cleanup
+- `app/jobs/notification_expiry_job.rb` — scheduled expiry cleanup
 - `frontend/hooks/useNotifications.ts` — TanStack Query polling hook
 - `frontend/components/layout/TopBar.tsx` — add notification badge
 - `config/routes.rb` — notification routes (Inertia + API namespace)
@@ -47,7 +47,7 @@ Build the in-app notification system with polling-based updates. Includes the no
     refetchInterval: 4000, // 4 seconds
   })
   ```
-- `NotificationExpiryWorker` should run every 1 minute (use `sidekiq-scheduler` or `sidekiq-cron`):
+- `NotificationExpiryJob` should run every 1 minute (configure in `config/recurring.yml`):
   ```ruby
   Notification.where(is_expired: false)
     .joins(:delivery_order)

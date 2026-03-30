@@ -1,7 +1,7 @@
 # Ticket 024: Testing Suite
 
 ## Description
-Write comprehensive RSpec tests covering core business logic per PRD section 16. This includes unit tests for models, services, and workers, plus integration tests for critical async pipelines. Set up test infrastructure with FactoryBot, Shoulda Matchers, Database Cleaner, and Sidekiq testing mode.
+Write comprehensive RSpec tests covering core business logic per PRD section 16. This includes unit tests for models, services, and jobs, plus integration tests for critical async pipelines. Set up test infrastructure with FactoryBot, Shoulda Matchers, Database Cleaner, and Solid Queue testing mode.
 
 ## Acceptance Criteria
 - [ ] **Test infrastructure configured:**
@@ -9,7 +9,7 @@ Write comprehensive RSpec tests covering core business logic per PRD section 16.
   - FactoryBot with factories for all models
   - Shoulda Matchers for model validation tests
   - Database Cleaner for test database management
-  - Sidekiq Testing inline mode for integration tests
+  - Solid Queue Testing inline mode for integration tests
   - Test database with PostGIS extension enabled
 - [ ] **Unit tests — Models:**
   - User: validations, role enum, associations
@@ -30,7 +30,7 @@ Write comprehensive RSpec tests covering core business logic per PRD section 16.
   - `Ai::NlOrderParser`: parses structured output, handles invalid input
   - `Ai::OrderRanker`: ranking produces sorted results, fallback works
 - [ ] **Integration tests:**
-  - Order creation → geocoding → routing → pricing → matching → `open` (full pipeline with Sidekiq inline)
+  - Order creation → geocoding → routing → pricing → matching → `open` (full pipeline with Solid Queue inline)
   - Order acceptance → notification → feed invalidation
   - Driver location update → ETA recalculation
   - Authentication flow (OmniAuth test mode)
@@ -65,8 +65,8 @@ Write comprehensive RSpec tests covering core business logic per PRD section 16.
 - `spec/services/matching/driver_matcher_spec.rb`
 - `spec/services/geo/geocoder_spec.rb`
 - `spec/services/geo/route_calculator_spec.rb`
-- `spec/workers/geocode_worker_spec.rb`
-- `spec/workers/route_calculation_worker_spec.rb`
+- `spec/jobs/geocode_job_spec.rb`
+- `spec/jobs/route_calculation_job_spec.rb`
 
 ## Technical Notes
 - FactoryBot factories for spatial data:
@@ -75,10 +75,10 @@ Write comprehensive RSpec tests covering core business logic per PRD section 16.
     location { RGeo::Geographic.spherical_factory(srid: 4326).point(-34.87, -8.05) }
   end
   ```
-- Sidekiq testing inline mode for integration tests:
+- Solid Queue testing inline mode for integration tests:
   ```ruby
-  Sidekiq::Testing.inline! do
-    # Workers execute immediately
+  Solid Queue::Testing.inline! do
+    # Jobs execute immediately
   end
   ```
 - Stub LLM API calls in AI service tests — don't make real API calls in tests

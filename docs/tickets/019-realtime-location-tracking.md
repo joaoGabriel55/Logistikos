@@ -6,9 +6,9 @@ Implement the full real-time location tracking pipeline: driver location ingesti
 ## Acceptance Criteria
 - [ ] `Api::LocationsController` accepts driver location updates (lat, lng, timestamp) — responds in < 200ms
 - [ ] Location updates are buffered in Redis (not written directly to PostgreSQL)
-- [ ] `LocationFlushWorker` (Sidekiq, `default` queue): flushes Redis buffer to Assignment table every 10-15 seconds (batch write)
-- [ ] `EtaRecalculationWorker` (Sidekiq, `default` queue): recalculates ETA via pgRouting (`pgr_dijkstra` from driver's current position to dropoff) every 30-60 seconds for active deliveries
-- [ ] `StaleLocationDetectorWorker` (Sidekiq, `maintenance` queue): checks for active deliveries where `last_location_updated_at` > 60 seconds ago, sets `location_stale: true`
+- [ ] `LocationFlushJob` (Solid Queue, `default` queue): flushes Redis buffer to Assignment table every 10-15 seconds (batch write)
+- [ ] `EtaRecalculationJob` (Solid Queue, `default` queue): recalculates ETA via pgRouting (`pgr_dijkstra` from driver's current position to dropoff) every 30-60 seconds for active deliveries
+- [ ] `StaleLocationDetectorJob` (Solid Queue, `maintenance` queue): checks for active deliveries where `last_location_updated_at` > 60 seconds ago, sets `location_stale: true`
 - [ ] Frontend `useDriverLocation` hook polls driver location endpoint every 5-15 seconds
 - [ ] `DriverMarker` updates position on map when new location received
 - [ ] Stale location shows a warning badge on the map ("Location data may be outdated")
@@ -31,9 +31,9 @@ Implement the full real-time location tracking pipeline: driver location ingesti
 
 ## Files to Create/Modify
 - `app/controllers/api/locations_controller.rb` — location update ingestion + location query endpoint
-- `app/workers/location_flush_worker.rb` — Redis to PostgreSQL batch flush
-- `app/workers/eta_recalculation_worker.rb` — pgRouting ETA recalculation
-- `app/workers/stale_delivery_monitor_worker.rb` — stale location detection (may extend from ticket 016)
+- `app/jobs/location_flush_job.rb` — Redis to PostgreSQL batch flush
+- `app/jobs/eta_recalculation_job.rb` — pgRouting ETA recalculation
+- `app/jobs/stale_delivery_monitor_job.rb` — stale location detection (may extend from ticket 016)
 - `frontend/hooks/useDriverLocation.ts` — polling hook for driver location (consumer/customer side)
 - `frontend/hooks/useGpsTracking.ts` — GPS-sourced location producer hook (driver side)
 - `frontend/hooks/usePolling.ts` — generic polling utility hook
@@ -45,7 +45,7 @@ Implement the full real-time location tracking pipeline: driver location ingesti
   # On location update:
   Redis.current.set("location:assignment:#{assignment_id}", { lat:, lng:, timestamp: }.to_json)
 
-  # Flush worker (every 10-15s):
+  # Flush job (every 10-15s):
   keys = Redis.current.keys("location:assignment:*")
   keys.each do |key|
     data = JSON.parse(Redis.current.get(key))

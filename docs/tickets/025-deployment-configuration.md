@@ -9,15 +9,12 @@ Create production-ready Docker configuration and deploy the application to **Ren
   - Stage 2: Ruby — Rails app with precompiled assets
   - Production-optimized (minimal image size, no dev dependencies)
 - [ ] **docker-compose.yml** (production):
-  - `web` — Rails app service
-  - `worker` — Sidekiq worker process
-  - `redis` — Redis with persistent volume
+  - `web` — Rails app service with Solid Queue workers (via `bin/jobs`)
   - **No Postgres container** — database is external Supabase PostgreSQL (with PostGIS + pgRouting), connected via `DATABASE_URL`
-  - Health checks on all services
+  - Health checks on service
   - Environment variable configuration via `.env`
 - [ ] `.env.example` documents ALL environment variables:
   - `DATABASE_URL` — Supabase PostgreSQL connection string
-  - `REDIS_URL` — Redis connection string
   - `SECRET_KEY_BASE` — Rails secret key
   - `MAPBOX_TOKEN` — Mapbox GL JS public token (frontend only, via VITE)
   - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`
@@ -40,7 +37,7 @@ Create production-ready Docker configuration and deploy the application to **Ren
     - **AI in Development Process** table: Ideation, Architecture, Code generation, Testing, Documentation, Design, Debugging — with specific examples
     - **AI as User-Facing Feature** table: Smart Price Estimation, Natural Language Orders, Intelligent Order Ranking, ETA Narratives — with AI technology and user benefit
     - Note that all development performed using Claude Code
-- [ ] **`render.yaml`** blueprint defining Render.com services (web, worker, Redis)
+- [ ] **`render.yaml`** blueprint defining Render.com services (web service with Solid Queue)
 - [ ] App deployed to **Render.com** with public URL (required by competition)
 - [ ] Deployed app is functional — all core flows work on the Render.com public URL
 
@@ -52,8 +49,8 @@ Create production-ready Docker configuration and deploy the application to **Ren
 
 ## Files to Create/Modify
 - `Dockerfile` — multi-stage production build
-- `docker-compose.yml` — production service definitions (web, worker, redis — no db container)
-- `render.yaml` — Render.com blueprint (web service, worker service, Redis instance)
+- `docker-compose.yml` — production service definitions (web with Solid Queue — no db container)
+- `render.yaml` — Render.com blueprint (web service with Solid Queue workers)
 - `.env.example` — complete environment variable documentation (including payment vars)
 - `README.md` — comprehensive project documentation with AI usage section
 - `.dockerignore` — exclude unnecessary files from Docker context
@@ -75,14 +72,14 @@ Create production-ready Docker configuration and deploy the application to **Ren
   # Install dependencies, copy gems, copy app, copy built assets from stage 1
   ```
 - **Render.com is the required deployment target** (competition rules — PRD Section 17)
-- Render deployment: use `render.yaml` blueprint for service definitions (web + worker from same Docker image, different start commands)
-- Render.com free tier: web service (750 hours/month) + Redis instance. **No Render PostgreSQL** — use external Supabase PostgreSQL (with PostGIS + pgRouting)
+- Render deployment: use `render.yaml` blueprint for service definitions (web + job from same Docker image, different start commands)
+- Render.com free tier: web service (750 hours/month). **No Render PostgreSQL** — use external Supabase PostgreSQL (with PostGIS + pgRouting). **No Redis needed** — Solid Queue uses the database.
 - Production `docker-compose.yml` must NOT include a PostgreSQL container — database is external Supabase, connected via `DATABASE_URL`
 - OSM data import: consider bundling a small regional extract in the Docker image or documenting the import step
 - `bin/docker-entrypoint` should handle:
   1. Wait for database to be ready
   2. `rails db:prepare` (create + migrate)
   3. Start the server
-- For Render: separate services for web and worker (both from same Docker image, different start commands)
+- For Render: single web service runs both Puma and Solid Queue workers (via `bin/dev` or Procfile)
 - `PAYMENT_GATEWAY` defaults to `mock` on Render — evaluators can test the full payment flow without Stripe credentials
 - MVP payment strategy: MockAdapter simulates authorize/capture/refund with deterministic success (PRD Section 6)

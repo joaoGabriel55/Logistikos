@@ -1,7 +1,7 @@
 # Ticket 031: Privacy-by-Design Foundations
 
 ## Description
-Implement privacy-by-design practices across the application following the privacy-by-design-rails skill patterns. Covers PII encryption at rest, log filtering, Sidekiq argument protection, data retention automation, DSAR foundations (anonymization and data export), consent management, and session security hardening.
+Implement privacy-by-design practices across the application following the privacy-by-design-rails skill patterns. Covers PII encryption at rest, log filtering, Solid Queue argument protection, data retention automation, DSAR foundations (anonymization and data export), consent management, and session security hardening.
 
 ## Acceptance Criteria
 
@@ -16,14 +16,14 @@ Implement privacy-by-design practices across the application following the priva
 ### Log & Output Protection
 - [ ] `config/initializers/filter_parameter_logging.rb` updated with all PII fields: `:passw`, `:email`, `:secret`, `:token`, `:_key`, `:crypt`, `:salt`, `:name`, `:phone`, `:pickup_address`, `:dropoff_address`, `:gateway_token`, `:card_last_four`, `:ip_address`
 - [ ] `self.filter_attributes` declared on User, DeliveryOrder, PaymentMethod, Payment models
-- [ ] Sidekiq workers verified to accept only record IDs (audit all perform signatures)
+- [ ] Solid Queue jobs verified to accept only record IDs (audit all perform signatures)
 - [ ] Add `logstop` gem for catch-all PII pattern redaction in logs
 
 ### Data Retention
-- [ ] `DataRetentionWorker` (Sidekiq, maintenance queue): anonymizes PII on users inactive > retention period
+- [ ] `DataRetentionJob` (Solid Queue, maintenance queue): anonymizes PII on users inactive > retention period
 - [ ] Location data cleanup: anonymize/delete Assignment location history older than 90 days
 - [ ] Configurable retention period via env var `DATA_RETENTION_YEARS` (default: 3)
-- [ ] Scheduled via `config/sidekiq.yml` (recurring, weekly)
+- [ ] Scheduled via `config/solid_queue.yml` (recurring, weekly)
 
 ### DSAR Foundations
 - [ ] `Anonymizable` concern on User model: replaces PII fields with `[ANONYMIZED]`
@@ -61,16 +61,16 @@ Implement privacy-by-design practices across the application following the priva
 - `app/models/concerns/has_consent.rb` — active consent checking concern
 - `app/models/consent.rb` — append-only consent model
 - `db/migrate/XXX_create_consents.rb` — consents table migration
-- `app/workers/data_retention_worker.rb` — scheduled PII anonymization worker
-- `config/sidekiq.yml` — add recurring weekly schedule for DataRetentionWorker
+- `app/jobs/data_retention_job.rb` — scheduled PII anonymization job
+- `config/solid_queue.yml` — add recurring weekly schedule for DataRetentionJob
 - `Gemfile` — add logstop gem
 - `spec/models/concerns/anonymizable_spec.rb` — Anonymizable concern tests
 - `spec/models/concerns/data_exportable_spec.rb` — DataExportable concern tests
-- `spec/workers/data_retention_worker_spec.rb` — worker tests
+- `spec/jobs/data_retention_job_spec.rb` — job tests
 
 ## Technical Notes
 - Follow patterns from the privacy-by-design-rails skill at `.agents/skills/privacy-by-design-rails/`
-- Use Sidekiq (not Solid Queue) for data retention since the project uses Sidekiq throughout
+- Use Solid Queue (not Solid Queue) for data retention since the project uses Solid Queue throughout
 - `Anonymizable` replaces PII with `[ANONYMIZED]`, preserving the record for referential integrity
 - `DataExportable` generates a JSON export including: user profile, orders (without other users' data), payment history (without gateway tokens), consents
 - Consent is append-only: current state = most recent record per purpose
