@@ -1,6 +1,12 @@
 services:
   postgres:
-    image: kartoza/postgis:16-3.4
+    # Use custom image built from official postgis/postgis with pgrouting added
+    # To use official image without pgrouting: image: postgis/postgis:16-3.4
+    build:
+      context: ./docker/postgres
+      args:
+        POSTGRES_VERSION: 16
+        POSTGIS_VERSION: 3.4
     ports:
       - "5432:5432"
     environment:
@@ -9,11 +15,28 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-logistikos_development}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Mount initialization scripts (runs once on first startup)
+      - ./docker/postgres/initdb.d:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  # Optional: Add pgAdmin for database management in development
+  # Uncomment to enable: docker compose up -d pgadmin
+  # pgadmin:
+  #   image: dpage/pgadmin4:latest
+  #   ports:
+  #     - "5050:80"
+  #   environment:
+  #     - PGADMIN_DEFAULT_EMAIL=admin@logistikos.local
+  #     - PGADMIN_DEFAULT_PASSWORD=admin
+  #   depends_on:
+  #     - postgres
+  #   restart: unless-stopped
 
 volumes:
   postgres_data:
+    driver: local
