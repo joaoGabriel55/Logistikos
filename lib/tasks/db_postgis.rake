@@ -106,11 +106,9 @@ Rake::Task["db:create"].enhance do
   Rake::Task["db:postgis:setup"].invoke if defined?(ActiveRecord)
 end
 
-# Ensure PostGIS is installed before db:migrate runs.
-# Rails uses schema.rb as a shortcut on fresh databases (schema load optimization),
-# bypassing db:schema:load Rake task entirely. schema.rb lists pgrouting before postgis
-# (alphabetical), so postgis must exist before any schema loading happens.
+# Ensure PostGIS is installed before db:migrate and db:schema:load run.
 Rake::Task["db:migrate"].enhance([ "db:postgis:setup" ]) if Rake::Task.task_defined?("db:migrate")
+Rake::Task["db:schema:load"].enhance([ "db:postgis:setup" ]) if Rake::Task.task_defined?("db:schema:load")
 
 # Enhance db:setup to include PostGIS
 Rake::Task["db:setup"].enhance([ "db:postgis:setup" ]) if Rake::Task.task_defined?("db:setup")

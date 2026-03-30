@@ -99,7 +99,7 @@ jobs:
         env:
           RAILS_ENV: test
           DATABASE_URL: postgis://postgres:postgres@localhost:5432/logistikos_test
-        run: bin/rails db:migrate
+        run: bin/rails db:schema:load
 
       - name: Run RSpec tests
         env:
@@ -142,7 +142,7 @@ jobs:
         env:
           RAILS_ENV: test
           DATABASE_URL: postgis://postgres:postgres@localhost:5432/logistikos_test
-        run: bin/rails db:migrate
+        run: bin/rails db:schema:load
 
       - name: Run RSpec System Tests
         env:
