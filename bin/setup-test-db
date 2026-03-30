@@ -1,0 +1,25 @@
+#!/usr/bin/env ruby
+require "fileutils"
+
+# path to your application root.
+APP_ROOT = File.expand_path("..", __dir__)
+
+def system!(*args)
+  system(*args, exception: true)
+end
+
+FileUtils.chdir APP_ROOT do
+  puts "== Setting up test database with PostGIS =="
+
+  puts "\n• Creating test database..."
+  system! "RAILS_ENV=test bin/rails db:create"
+
+  puts "\n• Setting up PostGIS extensions..."
+  system! "RAILS_ENV=test bin/rails db:postgis:setup"
+
+  puts "\n• Running migrations..."
+  system! "RAILS_ENV=test bin/rails db:migrate"
+
+  puts "\n✓ Test database is ready!"
+  puts "\nYou can now run: bundle exec rspec"
+end

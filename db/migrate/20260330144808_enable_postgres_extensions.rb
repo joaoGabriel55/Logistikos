@@ -1,31 +1,32 @@
 class EnablePostgresExtensions < ActiveRecord::Migration[8.1]
   def up
-    # Core extensions needed for all environments
-    enable_extension "plpgsql"
-    enable_extension "hstore"
-    enable_extension "postgis"
-    enable_extension "postgis_raster"
-    enable_extension "pgrouting"
+    # Use raw SQL with IF NOT EXISTS for more resilient extension creation
+    # This allows migrations to run even if extensions are partially installed
+    execute "CREATE EXTENSION IF NOT EXISTS plpgsql"
+    execute "CREATE EXTENSION IF NOT EXISTS hstore"
+    execute "CREATE EXTENSION IF NOT EXISTS postgis CASCADE"
+    execute "CREATE EXTENSION IF NOT EXISTS postgis_raster"
+    execute "CREATE EXTENSION IF NOT EXISTS pgrouting"
 
-    # Create topology schema for PostGIS
+    # PostGIS topology extension creates its own schema
     execute "CREATE SCHEMA IF NOT EXISTS topology"
-    enable_extension "postgis_topology", schema: "topology"
+    execute "CREATE EXTENSION IF NOT EXISTS postgis_topology SCHEMA topology"
 
     # pg_cron can only be enabled in one database (configured in postgresql.conf)
     # Skip it in test environment to avoid CI errors
     unless Rails.env.test?
-      enable_extension "pg_cron", schema: "pg_catalog"
+      execute "CREATE EXTENSION IF NOT EXISTS pg_cron SCHEMA pg_catalog"
     end
   end
 
   def down
-    disable_extension "postgis_topology"
+    execute "DROP EXTENSION IF EXISTS postgis_topology CASCADE"
     execute "DROP SCHEMA IF EXISTS topology CASCADE"
-    disable_extension "pgrouting"
-    disable_extension "postgis_raster"
-    disable_extension "postgis"
-    disable_extension "hstore"
-    disable_extension "pg_cron" unless Rails.env.test?
-    disable_extension "plpgsql"
+    execute "DROP EXTENSION IF EXISTS pgrouting"
+    execute "DROP EXTENSION IF EXISTS postgis_raster"
+    execute "DROP EXTENSION IF EXISTS postgis CASCADE"
+    execute "DROP EXTENSION IF EXISTS hstore"
+    execute "DROP EXTENSION IF EXISTS pg_cron" unless Rails.env.test?
+    # Don't drop plpgsql as it's needed by PostgreSQL
   end
 end

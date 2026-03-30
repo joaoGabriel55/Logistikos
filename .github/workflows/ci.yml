@@ -95,12 +95,21 @@ jobs:
         with:
           bundler-cache: true
 
-      - name: Run tests
+      - name: Prepare database
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: postgis://postgres:postgres@localhost:5432/logistikos_test
+        run: |
+          bin/rails db:create
+          bin/rails db:postgis:setup
+          bin/rails db:migrate
+
+      - name: Run RSpec tests
         env:
           RAILS_ENV: test
           DATABASE_URL: postgis://postgres:postgres@localhost:5432/logistikos_test
           # RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-        run: bin/rails db:create db:migrate test
+        run: bundle exec rspec --exclude-pattern "spec/system/**/*_spec.rb"
 
   system-test:
     runs-on: ubuntu-latest
@@ -122,7 +131,7 @@ jobs:
 
     steps:
       - name: Install packages
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libvips
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libvips google-chrome-stable
 
       - name: Checkout code
         uses: actions/checkout@v6
@@ -132,12 +141,21 @@ jobs:
         with:
           bundler-cache: true
 
-      - name: Run System Tests
+      - name: Prepare database
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: postgis://postgres:postgres@localhost:5432/logistikos_test
+        run: |
+          bin/rails db:create
+          bin/rails db:postgis:setup
+          bin/rails db:migrate
+
+      - name: Run RSpec System Tests
         env:
           RAILS_ENV: test
           DATABASE_URL: postgis://postgres:postgres@localhost:5432/logistikos_test
           # RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-        run: bin/rails db:create db:migrate test:system
+        run: bundle exec rspec spec/system
 
       - name: Keep screenshots from failed system tests
         uses: actions/upload-artifact@v4

@@ -15,6 +15,7 @@ Logistikos is a supply-driven logistics marketplace built for the AI Dev Challen
 - **Auth:** Rails 8 built-in authentication (`has_secure_password`, `Current.user`, `Session` model) — no JWT, no Devise
 - **Payments:** Gateway-agnostic adapter pattern; `Payments::Adapters::MockAdapter` is the MVP default
 - **Asset Pipeline:** Propshaft + importmap-rails (Hotwire/Stimulus also present)
+- **Testing:** RSpec with FactoryBot, Shoulda Matchers, Faker, and DatabaseCleaner
 
 ## Common Commands
 
@@ -28,12 +29,15 @@ bin/dev                          # Start dev server (Puma + jobs)
 bin/rails server                 # Start Rails server only
 bin/jobs                         # Start background job runner
 
-# Testing
-bin/rails test                   # Run all unit/integration tests
-bin/rails test test/models/user_test.rb           # Run a single test file
-bin/rails test test/models/user_test.rb:42        # Run a single test by line
-bin/rails test:system            # Run system tests (Capybara + Selenium)
-bin/rails db:test:prepare        # Prepare test database
+# Testing (RSpec)
+bin/setup-test-db                              # One-time: Setup test database with PostGIS (automated)
+bundle exec rspec                              # Run all specs
+bundle exec rspec spec/models                  # Run all model specs
+bundle exec rspec spec/models/user_spec.rb     # Run a single spec file
+bundle exec rspec spec/models/user_spec.rb:42  # Run a single spec by line
+bundle exec rspec --format documentation       # Run with detailed output
+bin/rails db:postgis:setup                     # Setup PostGIS extensions
+bin/rails db:postgis:verify                    # Verify PostGIS installation
 
 # Linting & Security
 bin/rubocop                      # Lint (rubocop-rails-omakase style)
