@@ -9,6 +9,26 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
+  # Authentication routes
+  get "login", to: "sessions#new", as: :login
+  post "login", to: "sessions#create"
+  delete "logout", to: "sessions#destroy", as: :logout
+
+  get "register", to: "registrations#new", as: :register
+  post "register", to: "registrations#create"
+
+  # OAuth routes
+  namespace :auth do
+    get "select_role", to: "role_selection#new", as: :select_role
+    post "select_role", to: "role_selection#create"
+  end
+
+  # OmniAuth routes - middleware handles /auth/:provider POST automatically
+  # Only callback routes need explicit definition
+  get "/auth/:provider/callback", to: "auth/omniauth_callbacks#google_oauth2"
+  post "/auth/:provider/callback", to: "auth/omniauth_callbacks#google_oauth2"
+  get "/auth/failure", to: "auth/omniauth_callbacks#failure"
+
   # Defines the root path route ("/")
   root "pages#home"
 end
