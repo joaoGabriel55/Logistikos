@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { createInertiaApp } from '@inertiajs/react'
 import type { ComponentType, ReactNode } from 'react'
+import axios from 'axios'
 import AppLayout from '@/layouts/AppLayout.tsx'
 import './application.css'
 
@@ -25,5 +26,10 @@ createInertiaApp({
   },
   progress: {
     color: '#a33800', // secondary color for progress bar
+  },
+  http: {
+    // Configure Inertia to use Rails' CSRF header name
+    xsrfCookieName: 'XSRF-TOKEN',
+    xsrfHeaderName: 'X-CSRF-Token'
   }
 })
