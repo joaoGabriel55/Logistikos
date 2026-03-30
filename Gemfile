@@ -4,7 +4,11 @@ source "https://rubygems.org"
 gem "rails", "~> 8.1.3"
 # The modern asset pipeline for Rails [https://github.com/rails/propshaft]
 gem "propshaft"
-# Use sqlite3 as the database for Active Record
+# Use PostgreSQL with PostGIS for spatial database features
+gem "pg", "~> 1.5"
+gem "activerecord-postgis-adapter", "~> 10.0"
+
+# Keep sqlite3 for legacy compatibility (can be removed after full migration)
 gem "sqlite3", ">= 2.1"
 # Use the Puma web server [https://github.com/puma/puma]
 gem "puma", ">= 5.0"
