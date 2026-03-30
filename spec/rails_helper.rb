@@ -44,17 +44,7 @@ begin
 
   ActiveRecord::Migration.maintain_test_schema!
 rescue ActiveRecord::PendingMigrationError => e
-  puts "\n⚠️  Pending migrations detected!"
-  puts "Running migrations automatically...\n"
-
-  begin
-    # Try to run migrations automatically
-    ActiveRecord::Tasks::DatabaseTasks.migrate
-    puts "✓ Migrations completed successfully!\n"
-  rescue => migration_error
-    puts "✗ Migration failed: #{migration_error.message}"
-    abort e.to_s.strip
-  end
+  abort e.to_s.strip
 end
 RSpec.configure do |config|
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
