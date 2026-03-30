@@ -10,15 +10,22 @@ Logistikos is a supply-driven logistics marketplace built for the AI Dev Challen
 
 - **Backend:** Ruby 3.4.3, Rails 8.1.3+ with Inertia.js (renders React components, not ERB)
 - **Frontend:** React 18+ / TypeScript via `@inertiajs/react`, Vite (`vite_rails`), TailwindCSS, Mapbox GL JS
-- **Database:** SQLite3 in development/test (planned PostgreSQL 16+ with PostGIS + pgRouting for spatial features)
+- **Database:** PostgreSQL 16+ with PostGIS 3.4 + pgRouting for spatial features (see `DOCKER.md` for setup)
 - **Background Jobs:** Solid Queue (Rails 8 default); agent definitions reference Sidekiq — follow whichever is actually configured
 - **Auth:** Rails 8 built-in authentication (`has_secure_password`, `Current.user`, `Session` model) — no JWT, no Devise
 - **Payments:** Gateway-agnostic adapter pattern; `Payments::Adapters::MockAdapter` is the MVP default
 - **Asset Pipeline:** Propshaft + importmap-rails (Hotwire/Stimulus also present)
+- **Testing:** RSpec with FactoryBot, Shoulda Matchers, Faker, and DatabaseCleaner
 
 ## Common Commands
 
 ```bash
+# Docker (recommended for development)
+docker compose up -d                              # Start PostgreSQL with PostGIS + pgRouting
+docker compose down                               # Stop services
+docker compose -f docker-compose.ci.yml up -d     # Start CI-like environment (testing)
+# See DOCKER.md for detailed Docker setup and troubleshooting
+
 # Setup
 bin/setup                        # Initial project setup
 bin/rails db:prepare             # Create/migrate database
@@ -28,12 +35,15 @@ bin/dev                          # Start dev server (Puma + jobs)
 bin/rails server                 # Start Rails server only
 bin/jobs                         # Start background job runner
 
-# Testing
-bin/rails test                   # Run all unit/integration tests
-bin/rails test test/models/user_test.rb           # Run a single test file
-bin/rails test test/models/user_test.rb:42        # Run a single test by line
-bin/rails test:system            # Run system tests (Capybara + Selenium)
-bin/rails db:test:prepare        # Prepare test database
+# Testing (RSpec)
+bin/setup-test-db                              # One-time: Setup test database with PostGIS (automated)
+bundle exec rspec                              # Run all specs
+bundle exec rspec spec/models                  # Run all model specs
+bundle exec rspec spec/models/user_spec.rb     # Run a single spec file
+bundle exec rspec spec/models/user_spec.rb:42  # Run a single spec by line
+bundle exec rspec --format documentation       # Run with detailed output
+bin/rails db:postgis:setup                     # Setup PostGIS extensions
+bin/rails db:postgis:verify                    # Verify PostGIS installation
 
 # Linting & Security
 bin/rubocop                      # Lint (rubocop-rails-omakase style)
@@ -42,9 +52,10 @@ bin/brakeman --no-pager          # Security static analysis
 bin/bundler-audit                # Scan gems for vulnerabilities
 bin/importmap audit              # Scan JS dependencies
 
-# Docker (production)
-docker build -t logistikos .
-docker run -d -p 80:80 -e RAILS_MASTER_KEY=<key> --name logistikos logistikos
+# Docker
+docker compose up -d             # Start development environment
+docker compose down -v           # Stop and remove all data
+# See DOCKER.md for comprehensive Docker documentation
 ```
 
 ## Architecture

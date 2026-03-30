@@ -23,5 +23,9 @@ module Logistikos
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+
+    # Exclude PostGIS-managed schemas from schema dumps
+    # The topology schema is created and managed by the postgis_topology extension
+    config.active_record.dump_schemas = :schema_search_path
   end
 end

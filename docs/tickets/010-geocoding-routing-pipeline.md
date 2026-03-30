@@ -1,31 +1,31 @@
 # Ticket 010: Geocoding & Routing Pipeline
 
 ## Description
-Implement the PostGIS geocoding and pgRouting route calculation services, plus their Sidekiq workers. This is the async pipeline that runs after order creation: geocode addresses to coordinates, compute the route, then transition the order from `processing` to `open`. On failure, transition to `error`.
+Implement the PostGIS geocoding and pgRouting route calculation services, plus their Solid Queue background jobs. This is the async pipeline that runs after order creation: geocode addresses to coordinates, compute the route, then transition the order from `processing` to `open`. On failure, transition to `error`.
 
 ## Acceptance Criteria
 - [ ] `Geo::Geocoder` service converts address strings to lat/lng coordinates using PostGIS geocoding functions (Tiger Geocoder `ST_Geocode` or imported address data lookup)
 - [ ] `Geo::RouteCalculator` service computes shortest-path route using pgRouting `pgr_dijkstra` over OSM road network
 - [ ] Route calculation produces: GeoJSON polyline (`ST_AsGeoJSON`), distance in meters (`ST_Length`), and estimated duration
-- [ ] `GeocodeWorker` (Sidekiq, `critical` queue):
+- [ ] `GeocodeJob` (Solid Queue, `critical` queue):
   - Receives order ID
   - Geocodes pickup and dropoff addresses
   - Stores coordinates in PostGIS Point columns on DeliveryOrder
-  - On success: enqueues `RouteCalculationWorker`
+  - On success: enqueues `RouteCalculationJob`
   - On failure: transitions order to `error` state, notifies customer
-- [ ] `RouteCalculationWorker` (Sidekiq, `critical` queue):
+- [ ] `RouteCalculationJob` (Solid Queue, `critical` queue):
   - Receives order ID
   - Computes route between pickup and dropoff coordinates
   - Stores route_geometry (LineString), estimated_distance_meters, estimated_duration_seconds
-  - On success: enqueues `PriceEstimationWorker` (ticket 011) or transitions to `open` if price exists
+  - On success: enqueues `PriceEstimationJob` (ticket 011) or transitions to `open` if price exists
   - On failure: transitions order to `error` state
-- [ ] Workers are idempotent — safe to retry
-- [ ] Order creation (from ticket 008) now enqueues `GeocodeWorker` after persisting the order
+- [ ] Jobs are idempotent — safe to retry
+- [ ] Order creation (from ticket 008) now enqueues `GeocodeJob` after persisting the order
 
 ## Dependencies
 - **003** — Database schema with PostGIS columns must exist
 - **008** — Order creation service to wire into
-- **009** — Sidekiq must be configured
+- **009** — Solid Queue must be configured
 
 ## Estimated Effort
 **L** (3-4 hours)
@@ -33,9 +33,9 @@ Implement the PostGIS geocoding and pgRouting route calculation services, plus t
 ## Files to Create/Modify
 - `app/services/geo/geocoder.rb` — PostGIS geocoding service
 - `app/services/geo/route_calculator.rb` — pgRouting route calculation service
-- `app/workers/geocode_worker.rb` — async geocoding worker
-- `app/workers/route_calculation_worker.rb` — async route calculation worker
-- `app/services/orders/creator.rb` — modify to enqueue `GeocodeWorker` after creation
+- `app/jobs/geocode_job.rb` — async geocoding job (queue_as :critical)
+- `app/jobs/route_calculation_job.rb` — async route calculation job (queue_as :critical)
+- `app/services/orders/creator.rb` — modify to enqueue `GeocodeJob` after creation
 
 ## Technical Notes
 - **Geocoding approach (MVP):** If Tiger Geocoder is not set up, use a simplified approach:

@@ -17,7 +17,7 @@ Build the AI-powered ETA narrative feature. Instead of showing raw "12 minutes" 
 - [ ] Narratives feel natural and contextual — not robotic
 
 ## Dependencies
-- **019** — ETA recalculation worker provides updated ETA data
+- **019** — ETA recalculation job provides updated ETA data
 - **016** — Delivery must be in active status
 
 ## Estimated Effort
@@ -25,7 +25,7 @@ Build the AI-powered ETA narrative feature. Instead of showing raw "12 minutes" 
 
 ## Files to Create/Modify
 - `app/services/ai/eta_narrator.rb` — LLM-based narrative generation service
-- `app/workers/eta_recalculation_worker.rb` — extend to generate narrative after ETA update
+- `app/jobs/eta_recalculation_job.rb` — extend to generate narrative after ETA update
 - `frontend/pages/Customer/OrderTracking.tsx` — display narrative text
 
 ## Technical Notes

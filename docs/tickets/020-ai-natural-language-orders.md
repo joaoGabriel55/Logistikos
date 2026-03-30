@@ -19,13 +19,13 @@ Build the natural language order creation feature where customers describe their
   - Confirmation screen showing parsed fields in editable form
   - Customer can edit any parsed field before final submission
   - "Submit Order" button that creates the order (reuses `Orders::Creator` from ticket 008)
-- [ ] Async processing via Sidekiq worker (LLM call doesn't block the UI)
+- [ ] Async processing via Solid Queue job (LLM call doesn't block the UI)
 - [ ] Fallback: if LLM is unavailable, show error message and link to standard form (ticket 008)
 - [ ] AI hallucination guard: validate all parsed fields, reject if critical fields are missing
 
 ## Dependencies
 - **008** — Order creation service (reused for final submission)
-- **009** — Sidekiq for async LLM processing
+- **009** — Solid Queue for async LLM processing
 
 ## Estimated Effort
 **M** (2-3 hours)

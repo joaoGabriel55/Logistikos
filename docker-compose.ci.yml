@@ -1,0 +1,24 @@
+# Docker Compose configuration for CI/testing
+# Uses official PostGIS image without pgrouting to match GitHub Actions
+# Usage: docker compose -f docker-compose.ci.yml up -d
+
+services:
+  postgres:
+    # Official PostGIS image - matches GitHub Actions CI environment
+    image: postgis/postgis:16-3.4
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-logistikos_test}
+    # Use tmpfs for test database - faster and no persistence needed
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# No named volumes for CI - we want ephemeral storage
