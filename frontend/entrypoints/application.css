@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Precision Logistikos Design System - Global Styles */
+
+@layer base {
+  /* Import fonts - these should be loaded from Google Fonts or similar */
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+  body {
+    @apply font-body text-on-surface bg-surface;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+  /* Glassmorphism utility for floating elements */
+  .glass {
+    @apply bg-surface-tint/80 backdrop-blur-glass;
+  }
+
+  /* Gradient button (Primary CTA) */
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary to-primary-container text-white py-3 px-4 rounded-md font-medium hover:opacity-90 transition-opacity;
+  }
+
+  /* Action button (Secondary CTA) */
+  .btn-action {
+    @apply bg-secondary text-white py-3 px-4 rounded-md font-medium hover:opacity-90 transition-opacity;
+  }
+
+  /* Tertiary button */
+  .btn-tertiary {
+    @apply text-on-primary-fixed-variant font-medium hover:underline;
+  }
+
+  /* Card base styles - no borders, tonal layering */
+  .card {
+    @apply bg-surface-container-lowest rounded-md shadow-sm p-4;
+  }
+
+  /* Input field styles */
+  .input {
+    @apply bg-surface-container-highest h-14 px-4 rounded-md outline-none transition-colors;
+    @apply focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20;
+  }
+}
+
+@layer utilities {
+  /* Minimum touch target size */
+  .touch-target {
+    @apply min-w-[44px] min-h-[44px];
+  }
+
+  /* Ambient shadow for floating elements */
+  .shadow-ambient {
+    box-shadow: 0 8px 24px rgba(25, 28, 30, 0.06);
+  }
+
+  /* Ghost border for accessibility */
+  .border-ghost {
+    border: 1px solid rgba(196, 198, 208, 0.15);
+  }
+}
