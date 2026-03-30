@@ -10,12 +10,14 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 0) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_30_144808) do
   create_schema "topology"
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "hstore"
-  enable_extension "pg_catalog.pg_cron"
+  # pg_cron can only be enabled in one database (configured in postgresql.conf)
+  # Skip in test environment to avoid CI errors
+  enable_extension "pg_catalog.pg_cron" unless Rails.env.test?
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgrouting"
   enable_extension "postgis"
