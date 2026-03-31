@@ -73,7 +73,7 @@ export default function BottomSheet({
 
         {/* Title */}
         {title && (
-          <div className="px-6 pb-4 border-b border-surface-container-low">
+          <div className="px-6 pb-4">
             <h2
               id="bottom-sheet-title"
               className="text-xl font-display font-semibold text-on-surface"

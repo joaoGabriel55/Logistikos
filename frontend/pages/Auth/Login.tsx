@@ -61,12 +61,9 @@ export default function Login({ googleOAuthUrl }: LoginProps) {
 
             {/* Divider */}
             {googleOAuthUrl && (
-              <div className="relative mb-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-surface-container-high"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-surface-container-lowest text-on-surface-variant">
+              <div className="mb-6">
+                <div className="flex justify-center">
+                  <span className="text-sm text-on-surface-variant">
                     Or continue with email
                   </span>
                 </div>

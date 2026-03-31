@@ -32,9 +32,21 @@ export default {
         body: ['Inter', 'sans-serif']
       },
       fontSize: {
+        'display-lg': '3.5rem',
         'display-md': '2.75rem',
+        'display-sm': '2.25rem',
+        'headline-lg': '2rem',
+        'headline-md': '1.75rem',
+        'headline-sm': '1.5rem',
+        'title-lg': '1.375rem',
         'title-md': '1.125rem',
-        'label-md': '0.75rem'
+        'title-sm': '0.875rem',
+        'body-lg': '1rem',
+        'body-md': '0.875rem',
+        'body-sm': '0.75rem',
+        'label-lg': '0.875rem',
+        'label-md': '0.75rem',
+        'label-sm': '0.6875rem'
       },
       borderRadius: {
         md: '0.75rem'
@@ -45,6 +57,9 @@ export default {
       },
       backdropBlur: {
         glass: '20px'
+      },
+      boxShadow: {
+        'ambient': '0 8px 24px rgba(25, 28, 30, 0.06)'
       }
     }
   },
