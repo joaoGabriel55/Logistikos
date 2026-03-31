@@ -48,6 +48,45 @@
     @apply bg-surface-container-highest h-14 px-4 rounded-md outline-none transition-colors;
     @apply focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20;
   }
+
+  /* Range slider styles for mobile-friendly touch targets */
+  input[type='range'] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #000e24;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 14, 36, 0.2);
+    transition: transform 0.2s ease;
+  }
+
+  input[type='range']::-webkit-slider-thumb:hover,
+  input[type='range']::-webkit-slider-thumb:active {
+    transform: scale(1.1);
+  }
+
+  input[type='range']::-moz-range-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #000e24;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 14, 36, 0.2);
+    transition: transform 0.2s ease;
+  }
+
+  input[type='range']::-moz-range-thumb:hover,
+  input[type='range']::-moz-range-thumb:active {
+    transform: scale(1.1);
+  }
 }
 
 @layer utilities {

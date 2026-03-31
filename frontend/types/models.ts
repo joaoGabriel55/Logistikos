@@ -52,3 +52,19 @@ export interface OrderItem {
   quantity: number
   cargoType?: string
 }
+
+export type VehicleType = 'motorcycle' | 'car' | 'van' | 'truck'
+
+export interface DriverProfile {
+  id: number
+  userId: number
+  vehicleType?: VehicleType
+  isAvailable: boolean
+  radiusPreferenceKm: number
+  location?: {
+    latitude: number
+    longitude: number
+  }
+  locationAccuracy?: number
+  locationUpdatedAt?: string
+}
