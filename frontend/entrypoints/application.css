@@ -65,4 +65,9 @@
   .border-ghost {
     border: 1px solid rgba(196, 198, 208, 0.15);
   }
+
+  /* Primary gradient for CTAs */
+  .gradient-primary {
+    background: linear-gradient(to right, #000e24, #00234b);
+  }
 }
