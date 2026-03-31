@@ -178,13 +178,73 @@ frontend/
 - GPS errors (PERMISSION_DENIED, POSITION_UNAVAILABLE, TIMEOUT) must be handled with user-friendly messages and degraded mode
 - Payment amounts displayed in user's locale format using `Intl.NumberFormat`
 
+## Component Architecture Standard
+
+**IMPORTANT**: All page components must follow this composition pattern:
+
+### 1. Custom Hook for Business Logic
+Create a custom hook (e.g., `useDriverProfile`, `useOrderForm`) that encapsulates:
+- Form state management (`useForm` from Inertia)
+- Data fetching/polling logic (TanStack Query if needed)
+- Event handlers and callbacks
+- Validation logic
+- Side effects (localStorage, analytics, etc.)
+- Error state management
+
+The hook should return a clean API:
+```typescript
+const { data, handlers, isLoading, errors } = useCustomHook(props);
+```
+
+### 2. Small Focused Components
+Break the page into smaller components (50-150 lines each) in `frontend/components/{domain}/{page}/`:
+- Each component handles one UI concern (e.g., `AvailabilityToggle`, `VehicleTypeSelector`)
+- Components are purely presentational — receive data and callbacks via props
+- No business logic, API calls, or complex state management
+- Well-defined TypeScript interfaces for props
+- Use barrel exports (`index.ts`) for clean imports
+
+### 3. Compositional Page Component
+The page component (`frontend/pages/`) should be clean (50-100 lines):
+- Calls the custom hook to get data and handlers
+- Composes smaller components into the final layout
+- Handles top-level layout concerns (MobileLayout, TopBar, BottomNav)
+- No business logic — purely compositional
+
+### Example Structure
+```
+frontend/
+  pages/
+    Driver/
+      Profile.tsx                    # 78 lines - composition only
+  components/
+    driver/
+      profile/
+        AvailabilityToggle.tsx       # 52 lines - presentational
+        VehicleTypeSelector.tsx      # 126 lines - presentational
+        RadiusSlider.tsx             # 67 lines - presentational
+        LocationSection.tsx          # 105 lines - presentational
+        index.ts                     # barrel export
+        README.md                    # component documentation
+  hooks/
+    useDriverProfile.ts              # 127 lines - all business logic
+```
+
+### Benefits
+- **Testability**: Hook and components can be tested independently
+- **Maintainability**: Smaller files (50-150 lines vs 400+)
+- **Reusability**: Components can be used elsewhere
+- **Type Safety**: Clear prop interfaces for each component
+- **Separation of Concerns**: Logic in hooks, UI in components, layout in pages
+
 ## Rules
 
 - Never use `any` type in TypeScript — define proper types in `frontend/types/`.
 - Never use Mapbox for geocoding or routing — backend handles all spatial computation via PostGIS/pgRouting. Frontend only renders pre-computed data.
 - Every component must have at least one test.
-- No business logic in components — extract to hooks or services.
+- **No business logic in page or presentational components** — extract to custom hooks following the Component Architecture Standard above.
 - Use lazy loading for routes and heavy components.
 - All forms must have validation with clear error messages.
 - Before implementing, check existing components and the design system for reusable patterns.
 - Reference `DESIGN.md` for any visual decision not covered above.
+- **For any non-trivial page (>200 lines)**: Apply the Component Architecture Standard — create a custom hook and break into smaller components.
