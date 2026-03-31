@@ -97,7 +97,17 @@ RSpec.configure do |config|
   # DatabaseCleaner configuration
   config.before(:suite) do
     DatabaseCleaner.strategy = :transaction
-    DatabaseCleaner.clean_with(:truncation)
+    # Exclude PostGIS system tables from truncation
+    DatabaseCleaner.clean_with(:truncation, except: %w[spatial_ref_sys])
+
+    # Ensure spatial_ref_sys is populated for PostGIS tests
+    # This is needed because the test database might be recreated between runs
+    srid_count = ActiveRecord::Base.connection.select_value("SELECT COUNT(*) FROM spatial_ref_sys WHERE srid = 4326")
+    if srid_count.to_i == 0
+      puts "\n⚠️  spatial_ref_sys table is empty. PostGIS spatial tests may fail."
+      puts "To fix this, run from your shell:"
+      puts "  docker exec logistikos-postgres-1 psql -U postgres -d logistikos_test -f /usr/share/postgresql/16/contrib/postgis-3.4/spatial_ref_sys.sql"
+    end
   end
 
   config.around(:each) do |example|

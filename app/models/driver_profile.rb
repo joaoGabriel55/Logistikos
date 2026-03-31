@@ -7,13 +7,15 @@ class DriverProfile < ApplicationRecord
   # Validations
   validates :user_id, presence: true, uniqueness: true
   validates :vehicle_type, presence: true
-  validates :radius_preference, numericality: { greater_than: 0 }
+  validates :radius_preference, numericality: { greater_than: 0, less_than_or_equal_to: 50000 }, allow_nil: false
 
   # Scopes
   scope :available, -> { where(is_available: true) }
   scope :within_radius, ->(lat, lng, radius_meters) {
+    # Location is already geography type, so we don't need to cast
+    # ST_DWithin with geography types automatically uses spherical calculations
     where(
-      "ST_DWithin(location, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)",
+      "ST_DWithin(location, ST_SetSRID(ST_MakePoint(?, ?), 4326), ?)",
       lng, lat, radius_meters
     )
   }
@@ -49,5 +51,15 @@ class DriverProfile < ApplicationRecord
     factory = RGeo::Geographic.spherical_factory(srid: 4326)
     self.location = factory.point(lng_f, lat_f)
     self.last_location_updated_at = Time.current
+  end
+
+  # Convert radius from meters (storage) to kilometers (display)
+  def radius_preference_km
+    (radius_preference / 1000.0).round(1)
+  end
+
+  # Set radius from kilometers (input) to meters (storage)
+  def radius_preference_km=(value_km)
+    self.radius_preference = (value_km.to_f * 1000).to_i
   end
 end

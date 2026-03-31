@@ -62,15 +62,21 @@ RSpec.describe Auth::RoleSelectionController, type: :controller do
 
         expect(response).to redirect_to("/customer/dashboard")
         expect(flash[:notice]).to eq("Account created successfully.")
-        expect(session[:session_id]).to be_present
+        expect(session[:user_session_id]).to be_present
         expect(session[:pending_oauth_user]).to be_nil
       end
 
-      it "creates a new user with driver role" do
-        post :create, params: { role: "driver" }
+      it "creates a new user with driver role and driver profile" do
+        expect {
+          post :create, params: { role: "driver" }
+        }.to change(User, :count).by(1).and change(DriverProfile, :count).by(1)
 
         user = User.last
         expect(user.role).to eq("driver")
+        expect(user.driver_profile).to be_present
+        expect(user.driver_profile.vehicle_type).to eq("car")
+        expect(user.driver_profile.is_available).to be false
+        expect(user.driver_profile.radius_preference_km).to eq(10.0)
         expect(response).to redirect_to("/driver/orders")
       end
     end

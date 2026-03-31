@@ -32,12 +32,13 @@ RSpec.describe RegistrationsController, type: :controller do
         email: "newuser@example.com",
         password: "password123",
         password_confirmation: "password123",
-        name: "New User"
+        name: "New User",
+        role: "customer"
       }
     end
 
-    context "with valid params" do
-      it "creates a new user with customer role by default" do
+    context "with valid params and customer role" do
+      it "creates a new user with customer role" do
         expect {
           post :create, params: valid_params
         }.to change(User, :count).by(1)
@@ -53,29 +54,81 @@ RSpec.describe RegistrationsController, type: :controller do
 
         expect(response).to redirect_to("/customer/dashboard")
         expect(flash[:notice]).to eq("Account created successfully.")
-        expect(session[:session_id]).to be_present
+        expect(session[:user_session_id]).to be_present
       end
     end
 
-    context "security: privilege escalation protection" do
-      it "ignores role parameter and defaults to customer" do
-        params_with_driver_role = valid_params.merge(role: "driver")
+    context "with valid params and driver role" do
+      let(:driver_params) { valid_params.merge(role: "driver") }
 
+      it "creates a new user with driver role and driver profile with defaults" do
         expect {
-          post :create, params: params_with_driver_role
-        }.to change(User, :count).by(1)
+          post :create, params: driver_params
+        }.to change(User, :count).by(1).and change(DriverProfile, :count).by(1)
 
         user = User.last
-        expect(user.role).to eq("customer"), "User role should default to customer, ignoring the role param"
-        expect(response).to redirect_to("/customer/dashboard")
+        expect(user.email).to eq("newuser@example.com")
+        expect(user.name).to eq("New User")
+        expect(user.role).to eq("driver")
+        expect(user.driver_profile).to be_present
+        expect(user.driver_profile.vehicle_type).to eq("car")
+        expect(user.driver_profile.is_available).to be false
+        expect(user.driver_profile.radius_preference_km).to eq(10.0)
       end
 
-      it "cannot escalate to driver role via mass assignment" do
-        post :create, params: valid_params.merge(role: "driver")
+      it "creates a driver profile with custom vehicle type and radius" do
+        custom_params = driver_params.merge(
+          vehicle_type: "van",
+          radius_preference_km: 25.0
+        )
+
+        expect {
+          post :create, params: custom_params
+        }.to change(User, :count).by(1).and change(DriverProfile, :count).by(1)
 
         user = User.last
-        expect(user).not_to be_driver
-        expect(user).to be_customer
+        expect(user.driver_profile.vehicle_type).to eq("van")
+        expect(user.driver_profile.radius_preference_km).to eq(25.0)
+      end
+
+      it "creates a session and redirects to driver orders page" do
+        post :create, params: driver_params
+
+        expect(response).to redirect_to("/driver/orders")
+        expect(flash[:notice]).to eq("Account created successfully.")
+        expect(session[:user_session_id]).to be_present
+      end
+    end
+
+    context "with invalid role" do
+      it "does not create a user and shows error" do
+        request.headers["X-Inertia"] = "true"
+        request.headers["X-Inertia-Version"] = "1"
+        invalid_params = valid_params.merge(role: "invalid_role")
+
+        expect {
+          post :create, params: invalid_params
+        }.not_to change(User, :count)
+
+        expect(response).to have_http_status(:ok)
+        inertia_data = JSON.parse(response.body)
+        expect(inertia_data["props"]["errors"]["role"]).to eq("Please select a valid role")
+      end
+    end
+
+    context "without role parameter" do
+      it "does not create a user and shows error" do
+        request.headers["X-Inertia"] = "true"
+        request.headers["X-Inertia-Version"] = "1"
+        params_without_role = valid_params.except(:role)
+
+        expect {
+          post :create, params: params_without_role
+        }.not_to change(User, :count)
+
+        expect(response).to have_http_status(:ok)
+        inertia_data = JSON.parse(response.body)
+        expect(inertia_data["props"]["errors"]["role"]).to eq("Please select a valid role")
       end
     end
 

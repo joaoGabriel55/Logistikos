@@ -35,7 +35,7 @@ RSpec.describe SessionsController, type: :controller do
 
         expect(response).to redirect_to("/customer/dashboard")
         expect(flash[:notice]).to eq("Signed in successfully.")
-        expect(session[:session_id]).to be_present
+        expect(session[:user_session_id]).to be_present
       end
 
       it "creates a Session record with IP and user agent" do
@@ -135,7 +135,7 @@ RSpec.describe SessionsController, type: :controller do
     let(:session_record) { create(:session, user: user) }
 
     before do
-      session[:session_id] = session_record.id
+      session[:user_session_id] = session_record.id
     end
 
     it "destroys the session and redirects to login" do
@@ -145,7 +145,7 @@ RSpec.describe SessionsController, type: :controller do
 
       expect(response).to redirect_to(login_path)
       expect(flash[:notice]).to eq("Signed out successfully.")
-      expect(session[:session_id]).to be_nil
+      expect(session[:user_session_id]).to be_nil
     end
 
     it "resets Current.user" do

@@ -39,7 +39,7 @@ RSpec.describe Auth::OmniauthCallbacksController, type: :controller do
 
         expect(response).to redirect_to("/customer/dashboard")
         expect(flash[:notice]).to eq("Signed in successfully with Google.")
-        expect(session[:session_id]).to be_present
+        expect(session[:user_session_id]).to be_present
       end
 
       it "creates a new session record" do
