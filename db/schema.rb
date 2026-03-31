@@ -10,14 +10,14 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_31_112541) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "hstore"
-  enable_extension "plpgsql"
+  enable_extension "pg_catalog.plpgsql"
   enable_extension "postgis"
   enable_extension "postgis_raster"
 
-  create_table "public.assignments", force: :cascade do |t|
+  create_table "assignments", force: :cascade do |t|
     t.datetime "accepted_at", null: false
     t.integer "cached_eta_seconds"
     t.datetime "created_at", null: false
@@ -33,7 +33,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
     t.index ["location_stale"], name: "index_assignments_on_location_stale"
   end
 
-  create_table "public.connected_services", force: :cascade do |t|
+  create_table "connected_services", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "provider", null: false
     t.string "uid", null: false
@@ -43,7 +43,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
     t.index ["user_id"], name: "index_connected_services_on_user_id"
   end
 
-  create_table "public.consents", force: :cascade do |t|
+  create_table "consents", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "granted_at"
     t.string "ip_address"
@@ -56,22 +56,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
     t.index ["user_id"], name: "index_consents_on_user_id"
   end
 
-  create_table "public.delivery_orders", force: :cascade do |t|
+  create_table "delivery_orders", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "created_by_id", null: false
     t.integer "delivery_type", default: 0, null: false
     t.text "description"
     t.text "dropoff_address", null: false
-    t.geography "dropoff_location", limit: {srid: 4326, type: "st_point", geographic: true}, null: false
+    t.geography "dropoff_location", limit: {srid: 4326, type: "st_point", geographic: true}
     t.integer "estimated_distance_meters"
     t.integer "estimated_duration_seconds"
     t.integer "estimated_price"
     t.text "pickup_address", null: false
-    t.geography "pickup_location", limit: {srid: 4326, type: "st_point", geographic: true}, null: false
+    t.geography "pickup_location", limit: {srid: 4326, type: "st_point", geographic: true}
     t.integer "price"
     t.geography "route_geometry", limit: {srid: 4326, type: "line_string", geographic: true}
     t.datetime "scheduled_at"
     t.integer "status", default: 0, null: false
+    t.integer "suggested_price_cents"
+    t.string "tracking_code"
     t.datetime "updated_at", null: false
     t.index ["created_by_id"], name: "index_delivery_orders_on_created_by_id"
     t.index ["delivery_type"], name: "index_delivery_orders_on_delivery_type"
@@ -80,9 +82,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
     t.index ["route_geometry"], name: "index_delivery_orders_on_route_geometry", using: :gist
     t.index ["scheduled_at"], name: "index_delivery_orders_on_scheduled_at"
     t.index ["status"], name: "index_delivery_orders_on_status"
+    t.index ["tracking_code"], name: "index_delivery_orders_on_tracking_code", unique: true
   end
 
-  create_table "public.driver_earnings", force: :cascade do |t|
+  create_table "driver_earnings", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "delivery_order_id", null: false
     t.bigint "driver_id", null: false
@@ -98,7 +101,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
     t.index ["payment_id"], name: "index_driver_earnings_on_payment_id"
   end
 
-  create_table "public.driver_profiles", force: :cascade do |t|
+  create_table "driver_profiles", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.boolean "is_available", default: false, null: false
     t.datetime "last_location_updated_at"
@@ -112,7 +115,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
     t.index ["user_id"], name: "index_driver_profiles_on_user_id", unique: true
   end
 
-  create_table "public.notifications", force: :cascade do |t|
+  create_table "notifications", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "delivery_order_id", null: false
     t.boolean "is_expired", default: false, null: false
@@ -127,7 +130,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
     t.index ["user_id"], name: "index_notifications_on_user_id"
   end
 
-  create_table "public.order_items", force: :cascade do |t|
+  create_table "order_items", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "delivery_order_id", null: false
     t.string "name", null: false
@@ -137,7 +140,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
     t.index ["delivery_order_id"], name: "index_order_items_on_delivery_order_id"
   end
 
-  create_table "public.payment_methods", force: :cascade do |t|
+  create_table "payment_methods", force: :cascade do |t|
     t.string "card_brand"
     t.string "card_last_four"
     t.datetime "created_at", null: false
@@ -151,7 +154,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
     t.index ["user_id"], name: "index_payment_methods_on_user_id"
   end
 
-  create_table "public.payments", force: :cascade do |t|
+  create_table "payments", force: :cascade do |t|
     t.integer "amount_cents", null: false
     t.datetime "authorized_at"
     t.datetime "captured_at"
@@ -176,7 +179,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
     t.index ["status"], name: "index_payments_on_status"
   end
 
-  create_table "public.sessions", force: :cascade do |t|
+  create_table "sessions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "ip_address"
     t.string "user_agent"
@@ -184,7 +187,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
-  create_table "public.users", force: :cascade do |t|
+  create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email", null: false
     t.string "name", null: false
@@ -194,22 +197,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_30_195715) do
     t.index ["email"], name: "index_users_on_email", unique: true
   end
 
-  add_foreign_key "public.assignments", "public.delivery_orders"
-  add_foreign_key "public.assignments", "public.users", column: "driver_id"
-  add_foreign_key "public.connected_services", "public.users"
-  add_foreign_key "public.consents", "public.users"
-  add_foreign_key "public.delivery_orders", "public.users", column: "created_by_id"
-  add_foreign_key "public.driver_earnings", "public.delivery_orders"
-  add_foreign_key "public.driver_earnings", "public.payments"
-  add_foreign_key "public.driver_earnings", "public.users", column: "driver_id"
-  add_foreign_key "public.driver_profiles", "public.users"
-  add_foreign_key "public.notifications", "public.delivery_orders"
-  add_foreign_key "public.notifications", "public.users"
-  add_foreign_key "public.order_items", "public.delivery_orders"
-  add_foreign_key "public.payment_methods", "public.users"
-  add_foreign_key "public.payments", "public.delivery_orders"
-  add_foreign_key "public.payments", "public.users", column: "customer_id"
-  add_foreign_key "public.payments", "public.users", column: "driver_id"
-  add_foreign_key "public.sessions", "public.users"
-
+  add_foreign_key "assignments", "delivery_orders"
+  add_foreign_key "assignments", "users", column: "driver_id"
+  add_foreign_key "connected_services", "users"
+  add_foreign_key "consents", "users"
+  add_foreign_key "delivery_orders", "users", column: "created_by_id"
+  add_foreign_key "driver_earnings", "delivery_orders"
+  add_foreign_key "driver_earnings", "payments"
+  add_foreign_key "driver_earnings", "users", column: "driver_id"
+  add_foreign_key "driver_profiles", "users"
+  add_foreign_key "notifications", "delivery_orders"
+  add_foreign_key "notifications", "users"
+  add_foreign_key "order_items", "delivery_orders"
+  add_foreign_key "payment_methods", "users"
+  add_foreign_key "payments", "delivery_orders"
+  add_foreign_key "payments", "users", column: "customer_id"
+  add_foreign_key "payments", "users", column: "driver_id"
+  add_foreign_key "sessions", "users"
 end

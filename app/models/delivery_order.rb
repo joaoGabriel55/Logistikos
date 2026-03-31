@@ -6,6 +6,9 @@ class DeliveryOrder < ApplicationRecord
   has_many :notifications, dependent: :destroy
   has_one :payment, dependent: :restrict_with_error
 
+  # Nested attributes for order items
+  accepts_nested_attributes_for :order_items, reject_if: :all_blank
+
   # Enums
   enum :status, {
     processing: 0,
@@ -25,8 +28,14 @@ class DeliveryOrder < ApplicationRecord
   validates :creator, presence: true
   validates :status, presence: true
   validates :delivery_type, presence: true
-  validates :pickup_address, presence: true
-  validates :dropoff_address, presence: true
+  validates :pickup_address, presence: true, length: { minimum: 5 }
+  validates :dropoff_address, presence: true, length: { minimum: 5 }
+  validates :description, length: { maximum: 500 }, allow_blank: true
+  validates :suggested_price_cents, numericality: { greater_than: 0, only_integer: true }, allow_nil: true
+  validates :scheduled_at, presence: true, if: :delivery_type_scheduled?
+  validate :scheduled_at_must_be_future, if: :delivery_type_scheduled?
+  validate :different_pickup_and_dropoff_addresses
+  validate :order_items_count_within_limits
 
   # Encrypt addresses at rest
   encrypts :pickup_address
@@ -115,5 +124,30 @@ class DeliveryOrder < ApplicationRecord
     end
 
     self.route_geometry = factory.line_string(points)
+  end
+
+  private
+
+  def scheduled_at_must_be_future
+    if scheduled_at.present? && scheduled_at < Time.current
+      errors.add(:scheduled_at, "must be in the future")
+    end
+  end
+
+  def different_pickup_and_dropoff_addresses
+    if pickup_address.present? && dropoff_address.present? && pickup_address == dropoff_address
+      errors.add(:dropoff_address, "must be different from pickup address")
+    end
+  end
+
+  def order_items_count_within_limits
+    # Count both persisted and new items
+    items_count = order_items.size
+
+    if items_count < 1
+      errors.add(:order_items, "must have at least one item")
+    elsif items_count > 20
+      errors.add(:order_items, "cannot exceed 20 items")
+    end
   end
 end

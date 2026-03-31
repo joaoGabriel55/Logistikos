@@ -6,7 +6,7 @@ class OrderItem < ApplicationRecord
 
   # Validations
   validates :delivery_order, presence: true
-  validates :name, presence: true
-  validates :quantity, presence: true, numericality: { greater_than: 0, only_integer: true }
+  validates :name, presence: true, length: { minimum: 1, maximum: 100 }
+  validates :quantity, presence: true, numericality: { greater_than: 0, less_than_or_equal_to: 999, only_integer: true }
   validates :size, presence: true
 end
