@@ -37,6 +37,15 @@ module Auth
             uid: oauth_data["uid"]
           )
 
+          # Create driver profile for driver users
+          if user.driver?
+            user.create_driver_profile!(
+              vehicle_type: :car,
+              is_available: false,
+              radius_preference_km: 10.0
+            )
+          end
+
           session.delete(:pending_oauth_user)
           create_session_for(user)
           redirect_to after_login_path(user), notice: "Account created successfully."

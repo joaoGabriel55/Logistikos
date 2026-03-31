@@ -8,9 +8,16 @@ module Authentication
   private
 
   def set_current_user
-    if (session_record = Session.find_by(id: session[:session_id]))
-      Current.user = session_record.user
-      Current.session = session_record
+    if session[:user_session_id].present?
+      session_record = Session.find_by(id: session[:user_session_id])
+
+      if session_record
+        Current.user = session_record.user
+        Current.session = session_record
+      else
+        # Clear invalid session from cookie
+        session.delete(:user_session_id)
+      end
     end
   end
 
@@ -53,7 +60,7 @@ module Authentication
       ip_address: request.remote_ip,
       user_agent: request.user_agent
     )
-    session[:session_id] = session_record.id
+    session[:user_session_id] = session_record.id
     Current.user = user
     Current.session = session_record
   end

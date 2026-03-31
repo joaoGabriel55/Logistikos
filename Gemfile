@@ -93,3 +93,5 @@ group :test do
   gem "shoulda-matchers", "~> 6.4"
   gem "database_cleaner-active_record", "~> 2.2"
 end
+
+gem "pry", "~> 0.16.0"

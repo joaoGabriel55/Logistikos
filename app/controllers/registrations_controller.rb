@@ -13,20 +13,45 @@ class RegistrationsController < ApplicationController
   end
 
   def create
-    user = User.new(registration_params.merge(role: :customer))
-
-    if user.save
-      create_session_for(user)
-      redirect_to after_login_path(user), notice: "Account created successfully."
-    else
-      # Format errors for Inertia.js (field => error message)
-      formatted_errors = user.errors.messages.transform_values { |messages| messages.first }
-
+    # Validate role before creating user to avoid enum errors
+    unless [ "customer", "driver" ].include?(params[:role])
       render inertia: "Auth/Register", props: {
         googleOAuthUrl: "/auth/google_oauth2",
-        errors: formatted_errors
+        errors: { role: "Please select a valid role" }
       }
+      return
     end
+
+    user = User.new(registration_params.merge(role: params[:role]))
+
+    ActiveRecord::Base.transaction do
+      if user.save
+        # Create driver profile for driver users
+        if user.driver?
+          user.create_driver_profile!(
+            vehicle_type: params[:vehicle_type] || :car,
+            is_available: false,
+            radius_preference_km: params[:radius_preference_km] || 10.0
+          )
+        end
+
+        create_session_for(user)
+        redirect_to after_login_path(user), notice: "Account created successfully."
+      else
+        # Format errors for Inertia.js (field => error message)
+        formatted_errors = user.errors.messages.transform_values { |messages| messages.first }
+
+        render inertia: "Auth/Register", props: {
+          googleOAuthUrl: "/auth/google_oauth2",
+          errors: formatted_errors
+        }
+      end
+    end
+  rescue ActiveRecord::RecordInvalid => e
+    render inertia: "Auth/Register", props: {
+      googleOAuthUrl: "/auth/google_oauth2",
+      errors: { base: "Failed to create account: #{e.message}" }
+    }
   end
 
   private

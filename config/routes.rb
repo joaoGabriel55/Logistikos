@@ -29,6 +29,21 @@ Rails.application.routes.draw do
   post "/auth/:provider/callback", to: "auth/omniauth_callbacks#google_oauth2"
   get "/auth/failure", to: "auth/omniauth_callbacks#failure"
 
+  # Driver routes
+  namespace :driver do
+    get "orders", to: "orders#index", as: :orders
+  end
+
+  # Customer routes
+  namespace :customer do
+    get "dashboard", to: "dashboard#index", as: :dashboard
+  end
+
+  # Driver profile management
+  resource :driver_profile, only: [ :show, :edit, :update ] do
+    post :update_location, on: :collection
+  end
+
   # Defines the root path route ("/")
   root "pages#home"
 end
