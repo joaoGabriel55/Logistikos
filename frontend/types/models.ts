@@ -51,6 +51,18 @@ export interface OrderItem {
   weight?: number
   quantity: number
   cargoType?: string
+  name?: string
+  size?: ItemSize
+}
+
+export type ItemSize = 'small' | 'medium' | 'large' | 'bulk'
+
+export type DeliveryType = 'immediate' | 'scheduled'
+
+export interface OrderItemInput {
+  name: string
+  quantity: number
+  size: ItemSize
 }
 
 export type VehicleType = 'motorcycle' | 'car' | 'van' | 'truck'

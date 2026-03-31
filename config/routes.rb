@@ -39,6 +39,16 @@ Rails.application.routes.draw do
     get "dashboard", to: "dashboard#index", as: :dashboard
   end
 
+  # Delivery orders (customer-facing)
+  resources :delivery_orders, only: [ :new, :create ]
+
+  # Payment methods (customer-facing)
+  resources :payment_methods, only: [ :index, :new, :create, :destroy ] do
+    member do
+      patch :set_default
+    end
+  end
+
   # Driver profile management
   resource :driver_profile, only: [ :show, :edit, :update ] do
     post :update_location, on: :collection

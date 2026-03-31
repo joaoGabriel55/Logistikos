@@ -11,3 +11,8 @@ declare module '@inertiajs/react' {
     }
   }
 }
+
+// Additional Inertia page props
+export interface OrderCreatePageProps {
+  has_payment_method: boolean
+}
